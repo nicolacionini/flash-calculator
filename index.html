@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flash Calculator</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  background:#f2f2f7;
+  color:#1c1c1e;
+}
+
+.wrapper{
+  max-width:560px;
+  margin:auto;
+  padding:16px;
+  padding-bottom:calc(16px + env(safe-area-inset-bottom));
+}
+
+h2{
+  margin:4px 0 12px;
+  font-size:22px;
+}
+
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:12px;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+}
+
+label{
+  font-size:14px;
+  font-weight:600;
+  display:block;
+  margin-bottom:6px;
+}
+
+input,select{
+  width:100%;
+  font-size:16px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #d1d1d6;
+  background:#fff;
+}
+
+.radio{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:6px 0;
+  font-size:15px;
+}
+
+.radio input{
+  width:auto;
+  transform:scale(1.2);
+}
+
+.result{
+  text-align:center;
+  font-size:24px;
+  font-weight:700;
+}
+
+.fec{
+  text-align:center;
+  color:#555;
+  margin-top:4px;
+}
+
+.alert{
+  text-align:center;
+  color:#ff3b30;
+  font-weight:600;
+  margin-top:6px;
+}
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+<h2>Calcolatore Flash</h2>
+
+<div class="card">
+<label>Numero guida a 200 mm (ISO 100)</label>
+<input type="number" id="gn" value="60" inputmode="decimal">
+</div>
+
+<div class="card">
+<label>Parabola</label>
+<select id="zoom">
+<option value="0.45">20 mm</option>
+<option value="0.50">24 mm</option>
+<option value="0.57">28 mm</option>
+<option value="0.63">35 mm</option>
+<option value="0.71">50 mm</option>
+<option value="0.80">70 mm</option>
+<option value="0.87">85 mm</option>
+<option value="0.93">105 mm</option>
+<option value="0.97">135 mm</option>
+<option value="1" selected>200 mm</option>
+</select>
+</div>
+
+<form class="card">
+<label>Modificatore</label>
+
+<label class="radio"><input type="radio" name="modifier" value="0" checked> Nessuno</label>
+<label class="radio"><input type="radio" name="modifier" value="-1.5"> Ombrello traslucido</label>
+<label class="radio"><input type="radio" name="modifier" value="-1"> Ombrello riflettente</label>
+<label class="radio"><input type="radio" name="modifier" value="-2.5"> Rimbalzo parete/soffitto</label>
+
+</form>
+
+<div class="card">
+<label>Distanza (m)</label>
+<input type="number" id="distance" value="1" step="0.1" inputmode="decimal">
+</div>
+
+<div class="card">
+<label>ISO</label>
+<select id="iso">
+<option selected>100</option>
+<option>200</option>
+<option>400</option>
+<option>800</option>
+<option>1600</option>
+<option>3200</option>
+</select>
+</div>
+
+<div class="card">
+<label>Diaframma</label>
+<select id="aperture">
+<option>1</option>
+<option>1.4</option>
+<option>2</option>
+<option>2.8</option>
+<option>4</option>
+<option>5.6</option>
+<option selected>8</option>
+<option>11</option>
+<option>16</option>
+<option>22</option>
+<option>32</option>
+</select>
+</div>
+
+<div class="card">
+<div class="result">Potenza: <span id="power">1/1</span></div>
+<div class="fec">FEC: <span id="fec">+0.0</span></div>
+<div id="warning" class="alert"></div>
+</div>
+
+</div>
+
+<script>
+(function(){
+
+const gn=document.getElementById("gn")
+const zoom=document.getElementById("zoom")
+const distance=document.getElementById("distance")
+const iso=document.getElementById("iso")
+const aperture=document.getElementById("aperture")
+const power=document.getElementById("power")
+const fec=document.getElementById("fec")
+const warning=document.getElementById("warning")
+
+const stops=["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128"]
+
+function modifierLoss(){
+  const el=document.querySelector('input[name="modifier"]:checked')
+  return el ? parseFloat(el.value) : 0
+}
+
+function calc(){
+
+  const GN=parseFloat(gn.value)
+  const zoomFactor=parseFloat(zoom.value)
+  const d=parseFloat(distance.value)
+  const ISO=parseFloat(iso.value)
+  const f=parseFloat(aperture.value)
+  const loss=modifierLoss()
+
+  if(!(GN>0 && d>0 && ISO>0 && f>0)) return
+
+  const effectiveGN=GN*zoomFactor*Math.pow(2,loss/2)
+  const value=(effectiveGN*Math.sqrt(ISO/100))/(d*f)
+  const S=2*Math.log2(value)
+
+  if(S<=0){
+    power.textContent="1/1"
+    fec.textContent="+0.0"
+    warning.textContent="Potenza insufficiente"
+    return
+  }
+
+  warning.textContent=""
+
+  let stopInt=Math.floor(S)
+  let frac=S-stopInt
+
+  stopInt=Math.min(7,stopInt)
+  frac=Math.min(0.9,Math.round(frac*10)/10)
+
+  power.textContent=stops[stopInt]
+  fec.textContent="+"+frac.toFixed(1)
+}
+
+document.querySelectorAll("input,select")
+.forEach(el=>el.addEventListener("input",calc))
+
+document.querySelectorAll('input[name="modifier"]')
+.forEach(el=>el.addEventListener("change",calc))
+
+calc()
+
+})();
+</script>
+
+</body>
+</html>
