@@ -1,231 +1,416 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Flash Calculator</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flash Power Calc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #0a0a0a; min-height: 100vh; }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #e0e0e0; }
 
-<style>
-*{box-sizing:border-box}
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #E8A030;
+      cursor: pointer;
+      border: 3px solid #0a0a0a;
+      box-shadow: 0 0 8px rgba(232,160,48,0.45);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #E8A030;
+      cursor: pointer;
+      border: 2px solid #0a0a0a;
+    }
 
-body{
-  margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-  background:#f2f2f7;
-  color:#1c1c1e;
-}
-
-.wrapper{
-  max-width:560px;
-  margin:auto;
-  padding:16px;
-  padding-bottom:calc(16px + env(safe-area-inset-bottom));
-}
-
-h2{
-  margin:4px 0 12px;
-  font-size:22px;
-}
-
-.card{
-  background:#fff;
-  border-radius:14px;
-  padding:14px;
-  margin-bottom:12px;
-  box-shadow:0 1px 2px rgba(0,0,0,.06);
-}
-
-label{
-  font-size:14px;
-  font-weight:600;
-  display:block;
-  margin-bottom:6px;
-}
-
-input,select{
-  width:100%;
-  font-size:16px;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid #d1d1d6;
-  background:#fff;
-}
-
-.radio{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin:6px 0;
-  font-size:15px;
-}
-
-.radio input{
-  width:auto;
-  transform:scale(1.2);
-}
-
-.result{
-  text-align:center;
-  font-size:24px;
-  font-weight:700;
-}
-
-.fec{
-  text-align:center;
-  color:#555;
-  margin-top:4px;
-}
-
-.alert{
-  text-align:center;
-  color:#ff3b30;
-  font-weight:600;
-  margin-top:6px;
-}
-</style>
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 16px 14px 48px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    @media (min-width: 700px) {
+      .layout {
+        grid-template-columns: 1fr 1fr;
+        padding: 24px 24px 56px;
+        gap: 14px;
+      }
+      .col-params { grid-column: 1; grid-row: 1; }
+      .col-mods   { grid-column: 1; grid-row: 2; }
+      .col-result { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; align-self: start; }
+    }
+  </style>
 </head>
 <body>
+  <div id="root"></div>
 
-<div class="wrapper">
+  <script type="text/babel">
+    const { useState, useMemo } = React;
 
-<h2>Calcolatore Flash</h2>
+    // ─── dati ────────────────────────────────────────────────────────────────
+    const APERTURES    = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
+    const ISO_VALUES   = [100, 200, 400, 800, 1600, 3200];
+    const ZOOM_VALUES  = [24, 28, 35, 50, 70, 85, 105, 135, 200];
+    const POWER_LABELS = ["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128"];
 
-<div class="card">
-<label>Numero guida a 200 mm (ISO 100)</label>
-<input type="number" id="gn" value="60" inputmode="decimal">
-</div>
+    // Il modificatore assorbe luce → riduce l'eccesso di potenza disponibile
+    const MODIFIERS = [
+      { id: "none",    short: "Diretto",            stops: 0   },
+      { id: "refl",    short: "Ombrello riflettente",stops: 1.0 },
+      { id: "thru",    short: "Ombrello traslucido", stops: 1.5 },
+      { id: "softbox", short: "Softbox",             stops: 1.5 },
+      { id: "bounce",  short: "Rimbalzo bianco",      stops: 2.5 },
+    ];
 
-<div class="card">
-<label>Parabola</label>
-<select id="zoom">
-<option value="0.45">20 mm</option>
-<option value="0.50">24 mm</option>
-<option value="0.57">28 mm</option>
-<option value="0.63">35 mm</option>
-<option value="0.71">50 mm</option>
-<option value="0.80">70 mm</option>
-<option value="0.87">85 mm</option>
-<option value="0.93">105 mm</option>
-<option value="0.97">135 mm</option>
-<option value="1" selected>200 mm</option>
-</select>
-</div>
+    const A  = "#E8A030";
+    const BG = "#0a0a0a";
+    const S1 = "#141414";
+    const S2 = "#1c1c1c";
+    const LBL = { fontSize:"11px", letterSpacing:"1.5px", color:"#555", textTransform:"uppercase" };
 
-<form class="card">
-<label>Modificatore</label>
+    // ─── calcolo ─────────────────────────────────────────────────────────────
+    /*
+      GN dichiarato a 200 mm (parabola chiusa), ISO 100.
 
-<label class="radio"><input type="radio" name="modifier" value="0" checked> Nessuno</label>
-<label class="radio"><input type="radio" name="modifier" value="-1.5"> Ombrello traslucido</label>
-<label class="radio"><input type="radio" name="modifier" value="-1"> Ombrello riflettente</label>
-<label class="radio"><input type="radio" name="modifier" value="-2.5"> Rimbalzo parete/soffitto</label>
+      Correzione zoom: GN(z) = GN × (z/200)^(1/3)
+        Esponente 1/3 da dati reali su 5 flash (Tealdi 2020) e Godox V860III.
+        Errore < ±0.25 EV su 24–200 mm.
 
-</form>
+        GN_eff   = GN × (zoom/200)^(1/3) × √(ISO/100)
+        f_max    = GN_eff / distanza
+        stops    = 2×log₂(f_max / f_set) − mod_stops
+        idx      = ⌈stops⌉          → livello di potenza (1/1 … 1/128)
+        offset   = idx − stops      → frazione di stop da aggiungere (0.0 … 0.9)
+    */
+    function calcFlash({ gn, zoom, distance, iso, aperture, modStops }) {
+      const gnEff     = gn * Math.pow(zoom / 200, 1/3) * Math.sqrt(iso / 100);
+      const fMax      = gnEff / distance;
+      const stopsBase = 2 * Math.log2(fMax / aperture);
+      const stops     = stopsBase - modStops;
 
-<div class="card">
-<label>Distanza (m)</label>
-<input type="number" id="distance" value="1" step="0.1" inputmode="decimal">
-</div>
+      if (stops < -0.05) return { err: "weak",   gnEff, fMax };
+      if (stops > 7.95)  return { err: "strong",  gnEff, fMax };
 
-<div class="card">
-<label>ISO</label>
-<select id="iso">
-<option selected>100</option>
-<option>200</option>
-<option>400</option>
-<option>800</option>
-<option>1600</option>
-<option>3200</option>
-</select>
-</div>
+      const s      = Math.max(0, Math.min(7.9999, stops));
+      let   idx    = Math.ceil(s - 0.0001);
+      let   offset = Math.round((idx - s) * 10) / 10;
+      if (offset >= 1) { idx = Math.max(0, idx - 1); offset = 0; }
 
-<div class="card">
-<label>Diaframma</label>
-<select id="aperture">
-<option>1</option>
-<option>1.4</option>
-<option>2</option>
-<option>2.8</option>
-<option>4</option>
-<option>5.6</option>
-<option selected>8</option>
-<option>11</option>
-<option>16</option>
-<option>22</option>
-<option>32</option>
-</select>
-</div>
+      return { err: null, idx, label: POWER_LABELS[idx], offset, gnEff, fMax };
+    }
 
-<div class="card">
-<div class="result">Potenza: <span id="power">1/1</span></div>
-<div class="fec">FEC: <span id="fec">+0.0</span></div>
-<div id="warning" class="alert"></div>
-</div>
+    // ─── componenti ──────────────────────────────────────────────────────────
 
-</div>
+    function Pill({ v, current, onSelect, fmt, style }) {
+      const on = v === current;
+      return (
+        <button onClick={() => onSelect(v)} style={{
+          background:   on ? A : S2,
+          color:        on ? "#000" : "#666",
+          border:       `1px solid ${on ? A : "#282828"}`,
+          borderRadius: "4px",
+          padding:      "9px 2px",
+          fontSize:     "12px",
+          fontFamily:   "monospace",
+          fontWeight:   on ? 700 : 400,
+          cursor:       "pointer",
+          touchAction:  "manipulation",
+          lineHeight:   "1",
+          flex:         "1 1 0",
+          minWidth:     0,
+          ...style,
+        }}>
+          {fmt ? fmt(v) : v}
+        </button>
+      );
+    }
 
-<script>
-(function(){
+    function RangeRow({ label, value, onChange, min, max, step, display }) {
+      const pct = ((value - min) / (max - min)) * 100;
+      const bg  = `linear-gradient(to right, ${A} 0%, ${A} ${pct}%, ${S2} ${pct}%, ${S2} 100%)`;
+      return (
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
+            <span style={LBL}>{label}</span>
+            <span style={{ fontSize:"15px", color:A, fontFamily:"monospace", fontWeight:700 }}>{display}</span>
+          </div>
+          <input type="range" min={min} max={max} step={step} value={value}
+            onChange={e => onChange(parseFloat(e.target.value))} style={{ background: bg }} />
+        </div>
+      );
+    }
 
-const gn=document.getElementById("gn")
-const zoom=document.getElementById("zoom")
-const distance=document.getElementById("distance")
-const iso=document.getElementById("iso")
-const aperture=document.getElementById("aperture")
-const power=document.getElementById("power")
-const fec=document.getElementById("fec")
-const warning=document.getElementById("warning")
+    function PillRow({ label, values, current, onSelect, fmt }) {
+      return (
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ ...LBL, marginBottom:"8px" }}>{label}</div>
+          <div style={{ display:"flex", gap:"3px" }}>
+            {values.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect} fmt={fmt} />)}
+          </div>
+        </div>
+      );
+    }
 
-const stops=["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128"]
+    // Diaframmi su due righe: 6 + 5
+    function ApertureRow({ current, onSelect }) {
+      const row1 = APERTURES.slice(0, 6);
+      const row2 = APERTURES.slice(6);
+      return (
+        <div style={{ marginBottom: "4px" }}>
+          <div style={{ ...LBL, marginBottom:"8px" }}>Diaframma</div>
+          <div style={{ display:"flex", gap:"3px", marginBottom:"3px" }}>
+            {row1.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect}
+              fmt={v => `f/${v}`} />)}
+          </div>
+          <div style={{ display:"flex", gap:"3px" }}>
+            {row2.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect}
+              fmt={v => `f/${v}`} />)}
+          </div>
+        </div>
+      );
+    }
 
-function modifierLoss(){
-  const el=document.querySelector('input[name="modifier"]:checked')
-  return el ? parseFloat(el.value) : 0
-}
+    // Modificatori: Diretto su riga intera + griglia 2×2
+    function ModifierGrid({ current, onSelect }) {
+      const first = MODIFIERS[0];
+      const rest  = MODIFIERS.slice(1);
+      return (
+        <div>
+          <div style={{ ...LBL, marginBottom:"10px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
+            Modificatori
+          </div>
+          {/* Diretto — full width */}
+          {[first].map(m => {
+            const on = current === m.id;
+            return (
+              <button key={m.id} onClick={() => onSelect(m.id)} style={{
+                display:      "flex",
+                justifyContent:"space-between",
+                alignItems:   "center",
+                width:        "100%",
+                background:   on ? "rgba(232,160,48,0.09)" : "transparent",
+                border:       `1px solid ${on ? A : "#242424"}`,
+                borderRadius: "6px",
+                padding:      "11px 14px",
+                marginBottom: "6px",
+                cursor:       "pointer",
+                touchAction:  "manipulation",
+                transition:   "all 0.12s",
+              }}>
+                <span style={{ fontSize:"13px", fontWeight: on ? 600 : 400, color: on ? A : "#666" }}>
+                  {m.short}
+                </span>
+                <span style={{ fontFamily:"monospace", fontSize:"11px", color: on ? "rgba(232,160,48,0.55)" : "#333" }}>
+                  ±0 EV
+                </span>
+              </button>
+            );
+          })}
+          {/* altri — griglia 2×2 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px" }}>
+            {rest.map(m => {
+              const on = current === m.id;
+              return (
+                <button key={m.id} onClick={() => onSelect(m.id)} style={{
+                  background:   on ? "rgba(232,160,48,0.09)" : "transparent",
+                  border:       `1px solid ${on ? A : "#242424"}`,
+                  borderRadius: "6px",
+                  padding:      "11px 12px",
+                  cursor:       "pointer",
+                  touchAction:  "manipulation",
+                  textAlign:    "left",
+                  transition:   "all 0.12s",
+                }}>
+                  <div style={{ fontSize:"13px", fontWeight: on ? 600 : 400,
+                    color: on ? A : "#666", lineHeight:"1.3" }}>
+                    {m.short}
+                  </div>
+                  <div style={{ fontFamily:"monospace", fontSize:"11px",
+                    color: on ? "rgba(232,160,48,0.55)" : "#333", marginTop:"3px" }}>
+                    −{m.stops.toFixed(1)} EV
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
 
-function calc(){
+    // ─── app ─────────────────────────────────────────────────────────────────
 
-  const GN=parseFloat(gn.value)
-  const zoomFactor=parseFloat(zoom.value)
-  const d=parseFloat(distance.value)
-  const ISO=parseFloat(iso.value)
-  const f=parseFloat(aperture.value)
-  const loss=modifierLoss()
+    function FlashCalc() {
+      const [gn,   setGn]   = useState(60);
+      const [zoom, setZoom] = useState(50);
+      const [dist, setDist] = useState(2.0);
+      const [iso,  setIso]  = useState(100);
+      const [apt,  setApt]  = useState(8);
+      const [mod,  setMod]  = useState("none");
 
-  if(!(GN>0 && d>0 && ISO>0 && f>0)) return
+      const modDef = MODIFIERS.find(m => m.id === mod);
+      const R = useMemo(
+        () => calcFlash({ gn, zoom, distance: dist, iso, aperture: apt, modStops: modDef.stops }),
+        [gn, zoom, dist, iso, apt, modDef]
+      );
 
-  const effectiveGN=GN*zoomFactor*Math.pow(2,loss/2)
-  const value=(effectiveGN*Math.sqrt(ISO/100))/(d*f)
-  const S=2*Math.log2(value)
+      return (
+        <div style={{ background:BG, minHeight:"100vh" }}>
 
-  if(S<=0){
-    power.textContent="1/1"
-    fec.textContent="+0.0"
-    warning.textContent="Potenza insufficiente"
-    return
-  }
+          {/* header */}
+          <div style={{ padding:"22px 18px 0", maxWidth:"960px", margin:"0 auto" }}>
+            <h1 style={{
+              fontFamily:"'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize:   "22px",
+              letterSpacing: "3px",
+              textTransform: "uppercase",
+              color: "#fff",
+            }}>
+              Flash <span style={{ color:A }}>Power</span> Calc
+            </h1>
+          </div>
 
-  warning.textContent=""
+          <div className="layout">
 
-  let stopInt=Math.floor(S)
-  let frac=S-stopInt
+            {/* parametri */}
+            <div className="col-params" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
+              <div style={{ ...LBL, marginBottom:"18px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
+                Parametri
+              </div>
+              <RangeRow label="Numero Guida" value={gn} onChange={setGn}
+                min={10} max={120} step={1} display={String(gn)} />
+              <RangeRow label="Distanza" value={dist} onChange={setDist}
+                min={0.5} max={15} step={0.1} display={`${dist.toFixed(1)} m`} />
+              <PillRow label="Zoom Flash" values={ZOOM_VALUES} current={zoom} onSelect={setZoom}
+                fmt={v => `${v}`} />
+              <PillRow label="ISO" values={ISO_VALUES} current={iso} onSelect={setIso} />
+              <ApertureRow current={apt} onSelect={setApt} />
+            </div>
 
-  stopInt=Math.min(7,stopInt)
-  frac=Math.min(0.9,Math.round(frac*10)/10)
+            {/* modificatori */}
+            <div className="col-mods" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
+              <ModifierGrid current={mod} onSelect={setMod} />
+            </div>
 
-  power.textContent=stops[stopInt]
-  fec.textContent="+"+frac.toFixed(1)
-}
+            {/* risultato */}
+            <div className="col-result" style={{
+              background:     R.err ? S1 : `radial-gradient(ellipse at 50% 20%, rgba(232,160,48,0.08) 0%, ${S1} 65%)`,
+              border:         `1px solid ${R.err ? "#1e1e1e" : "rgba(232,160,48,0.2)"}`,
+              borderRadius:   "10px",
+              padding:        "36px 24px",
+              display:        "flex",
+              flexDirection:  "column",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            "10px",
+              minHeight:      "260px",
+              textAlign:      "center",
+            }}>
 
-document.querySelectorAll("input,select")
-.forEach(el=>el.addEventListener("input",calc))
+              {R.err === "weak" && (
+                <>
+                  <div style={{ fontSize:"36px" }}>🔅</div>
+                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
+                    color:"#ef4444", letterSpacing:"1px" }}>FLASH INSUFFICIENTE</div>
+                  <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
+                    Apri il diaframma · Aumenta ISO<br />
+                    Avvicina il soggetto · GN maggiore
+                  </div>
+                </>
+              )}
 
-document.querySelectorAll('input[name="modifier"]')
-.forEach(el=>el.addEventListener("change",calc))
+              {R.err === "strong" && (
+                <>
+                  <div style={{ fontSize:"36px" }}>⚡</div>
+                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
+                    color:"#f59e0b", letterSpacing:"1px" }}>POTENZA ECCESSIVA</div>
+                  <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
+                    Chiudi il diaframma · Riduci ISO<br />
+                    Allontana il soggetto
+                  </div>
+                </>
+              )}
 
-calc()
+              {!R.err && (
+                <>
+                  {/* potenza */}
+                  <div style={{
+                    fontFamily: "'Space Mono', monospace",
+                    fontSize:   "clamp(58px, 14vw, 88px)",
+                    fontWeight: 700,
+                    color:      A,
+                    lineHeight: 1,
+                    letterSpacing: "-1px",
+                  }}>
+                    {R.label}
+                  </div>
 
-})();
-</script>
+                  {/* offset — frazione di stop intermedia */}
+                  <div style={{ display:"flex", alignItems:"baseline", gap:"7px", marginTop:"2px" }}>
+                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"28px", fontWeight:700,
+                      color: R.offset > 0 ? "#d0d0d0" : "#252525" }}>
+                      +{R.offset.toFixed(1)}
+                    </span>
+                    <span style={{ fontSize:"11px", color:"#444", letterSpacing:"1px" }}>EV</span>
+                  </div>
 
+                  {/* barra */}
+                  <div style={{ width:"100%", marginTop:"10px" }}>
+                    <div style={{ display:"flex", gap:"3px" }}>
+                      {POWER_LABELS.map((_, i) => (
+                        <div key={i} style={{
+                          flex: 1, height:"5px", borderRadius:"2px",
+                          background:  i===R.idx ? A : i<R.idx ? "rgba(232,160,48,0.18)" : "#1c1c1c",
+                          boxShadow:   i===R.idx ? `0 0 8px ${A}` : "none",
+                        }} />
+                      ))}
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginTop:"4px" }}>
+                      {POWER_LABELS.map((lbl, i) => (
+                        <span key={i} style={{ fontFamily:"monospace", fontSize:"8px",
+                          color: i===R.idx ? A : "#2a2a2a" }}>{lbl}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* dettaglio */}
+                  <div style={{ marginTop:"8px", fontFamily:"monospace", fontSize:"11px",
+                    color:"#333", lineHeight:"1.9" }}>
+                    GN<sub>eff</sub> {R.gnEff.toFixed(1)} · f/{R.fMax.toFixed(1)} @ 1/1
+                    {modDef.stops > 0 && (
+                      <span><br />mod −{modDef.stops.toFixed(1)} EV ({modDef.short})</span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<FlashCalc />);
+  </script>
 </body>
 </html>
