@@ -300,7 +300,7 @@
               <RangeRow label="Numero Guida" value={gn} onChange={setGn}
                 min={10} max={120} step={1} display={String(gn)} />
               <RangeRow label="Distanza" value={dist} onChange={setDist}
-                min={0.5} max={15} step={0.1} display={`${dist.toFixed(1)} m`} />
+                min={0.5} max={15} step={0.5} display={`${dist.toFixed(1)} m`} />
               <PillRow label="Zoom Flash" values={ZOOM_VALUES} current={zoom} onSelect={setZoom}
                 fmt={v => `${v}`} />
               <PillRow label="ISO" values={ISO_VALUES} current={iso} onSelect={setIso} />
