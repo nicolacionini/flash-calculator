@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,30 +16,21 @@
     body { font-family: system-ui, -apple-system, sans-serif; color: #e0e0e0; }
 
     input[type=range] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 4px;
-      border-radius: 2px;
-      outline: none;
-      cursor: pointer;
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 2px; outline: none; cursor: pointer;
     }
     input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      background: #E8A030;
-      cursor: pointer;
-      border: 3px solid #0a0a0a;
+      -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+      background: #E8A030; cursor: pointer; border: 3px solid #0a0a0a;
       box-shadow: 0 0 8px rgba(232,160,48,0.45);
     }
     input[type=range]::-moz-range-thumb {
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      background: #E8A030;
-      cursor: pointer;
-      border: 2px solid #0a0a0a;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #E8A030; cursor: pointer; border: 2px solid #0a0a0a;
     }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
 
     .layout {
       display: grid;
@@ -52,64 +43,59 @@
     @media (min-width: 700px) {
       .layout {
         grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto;
         padding: 24px 24px 56px;
         gap: 14px;
       }
       .col-params { grid-column: 1; grid-row: 1; }
       .col-mods   { grid-column: 1; grid-row: 2; }
-      .col-result { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; align-self: start; }
-      .col-note   { grid-column: 2; grid-row: 3; }
+      .col-result { grid-column: 2; grid-row: 1 / 3; align-self: start; }
+      .col-note   { grid-column: 2; grid-row: 3; align-self: start; }
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
-
   <script type="text/babel">
     const { useState, useMemo } = React;
 
-    // ─── dati ────────────────────────────────────────────────────────────────
     const APERTURES    = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
     const ISO_VALUES   = [100, 200, 400, 800, 1600, 3200];
     const ZOOM_VALUES  = [20, 24, 28, 35, 50, 70, 85, 105, 135, 200];
     const POWER_LABELS = ["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128","1/256"];
 
-    // Il modificatore assorbe luce → riduce l'eccesso di potenza disponibile
     const MODIFIERS = [
-      { id: "none",   short: "Direct",             stops: 0   },
-      { id: "refl",   short: "Reflective umbrella", stops: 1.0 },
-      { id: "thru",   short: "Shoot-through umbrella",  stops: 1.5 },
-      { id: "sb60",   short: "Softbox 60 cm",        stops: 1.0 },
-      { id: "sb90",   short: "Softbox 90 cm",        stops: 1.5 },
-      { id: "sb120",  short: "Softbox 120 cm",       stops: 2.0 },
-      { id: "bounce", short: "White bounce",       stops: 2.5 },
+      { id: "none",   short: "Direct",                stops: 0   },
+      { id: "refl",   short: "Reflective umbrella",   stops: 1.0 },
+      { id: "thru",   short: "Shoot-through umbrella",stops: 1.5 },
+      { id: "sb60",   short: "Softbox 60 cm",         stops: 1.0 },
+      { id: "sb90",   short: "Softbox 90 cm",         stops: 1.5 },
+      { id: "sb120",  short: "Softbox 120 cm",        stops: 2.0 },
+      { id: "bounce", short: "White bounce",           stops: 2.5 },
     ];
 
-    const A  = "#E8A030";
-    const BG = "#0a0a0a";
-    const S1 = "#141414";
-    const S2 = "#1c1c1c";
+    const A   = "#E8A030";
+    const BG  = "#0a0a0a";
+    const S1  = "#141414";
+    const S2  = "#1c1c1c";
     const LBL = { fontSize:"11px", letterSpacing:"1.5px", color:"#555", textTransform:"uppercase" };
 
-    // ─── calcolo ─────────────────────────────────────────────────────────────
-    /*
-      GN dichiarato a 200 mm (parabola chiusa), ISO 100.
+    const numInput = {
+      width:"100%", background:"#0f0f0f",
+      border:"1px solid #2a2a2a", borderRadius:"5px",
+      fontFamily:"monospace", fontSize:"22px", fontWeight:"700",
+      textAlign:"center", padding:"6px 2px", outline:"none",
+    };
 
-      Correzione zoom: GN(z) = GN × (z/200)^(1/3)
+    /*
+      GN dichiarato allo zoom di riferimento gnRef, ISO 100.
+      Correzione zoom: GN(z) = GN × (z/gnRef)^(1/3)
         Esponente 1/3 da dati reali su 5 flash (Tealdi 2020) e Godox V860III.
         Errore < ±0.25 EV su 24–200 mm.
-
-        GN_eff   = GN × (zoom/200)^(1/3) × √(ISO/100)
-        f_max    = GN_eff / distance
-        stops    = 2×log₂(f_max / f_set) − mod_stops
-
-      Granularità mezzo stop: il risultato viene arrotondato al mezzo stop più
-      vicino (0.0 o +0.5), coerente con l'incertezza reale del sistema
-      (riflettività soggetto, variazioni GN, modificatori) e con i valori
-      impostabili sul flash.
+      Granularità mezzo stop — coerente con l'incertezza reale del sistema.
     */
-    function calcFlash({ gn, zoom, distance, iso, aperture, modStops }) {
-      const gnEff     = gn * Math.pow(zoom / 200, 1/3) * Math.sqrt(iso / 100);
+    function calcFlash({ gn, gnRef, zoom, distance, iso, aperture, modStops }) {
+      const gnEff     = gn * Math.pow(zoom / gnRef, 1/3) * Math.sqrt(iso / 100);
       const fMax      = gnEff / distance;
       const stopsBase = 2 * Math.log2(fMax / aperture);
       const stops     = stopsBase - modStops;
@@ -117,37 +103,25 @@
       if (stops < -0.5) return { err: "weak",   gnEff, fMax };
       if (stops > 8.0)  return { err: "strong",  gnEff, fMax };
 
-      // Arrotonda al mezzo stop più vicino
       const sRound = Math.round(Math.max(0, Math.min(8.0, stops)) * 2) / 2;
       let   idx    = Math.ceil(sRound - 0.001);
-      let   offset = Math.round((idx - sRound) * 10) / 10; // 0.0 o 0.5
-
-      // 1/256 (idx=8) non può avere offset positivo
+      let   offset = Math.round((idx - sRound) * 10) / 10;
       if (idx === 8 && offset > 0) return { err: "strong", gnEff, fMax };
 
       return { err: null, idx, label: POWER_LABELS[idx], offset, gnEff, fMax };
     }
 
-    // ─── componenti ──────────────────────────────────────────────────────────
+    // ── atoms ────────────────────────────────────────────────────────────────
 
-    function Pill({ v, current, onSelect, fmt, style }) {
+    function Pill({ v, current, onSelect, fmt }) {
       const on = v === current;
       return (
         <button onClick={() => onSelect(v)} style={{
-          background:   on ? A : S2,
-          color:        on ? "#000" : "#666",
-          border:       `1px solid ${on ? A : "#282828"}`,
-          borderRadius: "4px",
-          padding:      "9px 2px",
-          fontSize:     "12px",
-          fontFamily:   "monospace",
-          fontWeight:   on ? 700 : 400,
-          cursor:       "pointer",
-          touchAction:  "manipulation",
-          lineHeight:   "1",
-          flex:         "1 1 0",
-          minWidth:     0,
-          ...style,
+          background: on ? A : S2, color: on ? "#000" : "#666",
+          border: `1px solid ${on ? A : "#282828"}`, borderRadius: "4px",
+          padding: "9px 2px", fontSize: "12px", fontFamily: "monospace",
+          fontWeight: on ? 700 : 400, cursor: "pointer", touchAction: "manipulation",
+          lineHeight: "1", flex: "1 1 0", minWidth: 0,
         }}>
           {fmt ? fmt(v) : v}
         </button>
@@ -180,134 +154,115 @@
       );
     }
 
-    // Diaframmi su due righe: 6 + 5
     function ApertureRow({ current, onSelect }) {
-      const row1 = APERTURES.slice(0, 6);
-      const row2 = APERTURES.slice(6);
       return (
         <div style={{ marginBottom: "4px" }}>
           <div style={{ ...LBL, marginBottom:"8px" }}>Aperture</div>
           <div style={{ display:"flex", gap:"3px", marginBottom:"3px" }}>
-            {row1.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect}
-              fmt={v => `f/${v}`} />)}
+            {APERTURES.slice(0,6).map(v =>
+              <Pill key={v} v={v} current={current} onSelect={onSelect} fmt={v => `f/${v}`} />)}
           </div>
           <div style={{ display:"flex", gap:"3px" }}>
-            {row2.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect}
-              fmt={v => `f/${v}`} />)}
+            {APERTURES.slice(6).map(v =>
+              <Pill key={v} v={v} current={current} onSelect={onSelect} fmt={v => `f/${v}`} />)}
           </div>
         </div>
       );
     }
 
-    // Modifiers: Direct full-width + 2×2 grid
     function ModifierGrid({ current, onSelect }) {
       const first = MODIFIERS[0];
       const rest  = MODIFIERS.slice(1);
+      const chip = (m, full) => {
+        const on = current === m.id;
+        return (
+          <button key={m.id} onClick={() => onSelect(m.id)} style={{
+            display: full ? "flex" : "block",
+            justifyContent:"space-between", alignItems:"center",
+            width: full ? "100%" : "auto",
+            background:   on ? "rgba(232,160,48,0.09)" : "transparent",
+            border:       `1px solid ${on ? A : "#242424"}`,
+            borderRadius: "6px",
+            padding:      full ? "11px 14px" : "11px 12px",
+            marginBottom: full ? "6px" : 0,
+            cursor:"pointer", touchAction:"manipulation",
+            textAlign:"left", transition:"all 0.12s",
+          }}>
+            <div style={{ fontSize:"13px", fontWeight: on?600:400,
+              color: on?A:"#666", lineHeight:"1.3" }}>{m.short}</div>
+            <div style={{ fontFamily:"monospace", fontSize:"11px",
+              color: on?"rgba(232,160,48,0.55)":"#333", marginTop: full?0:"3px" }}>
+              {m.stops > 0 ? `−${m.stops.toFixed(1)} EV` : "±0 EV"}
+            </div>
+          </button>
+        );
+      };
       return (
         <div>
           <div style={{ ...LBL, marginBottom:"10px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
             Modifiers
           </div>
-          {/* Diretto — full width */}
-          {[first].map(m => {
-            const on = current === m.id;
-            return (
-              <button key={m.id} onClick={() => onSelect(m.id)} style={{
-                display:      "flex",
-                justifyContent:"space-between",
-                alignItems:   "center",
-                width:        "100%",
-                background:   on ? "rgba(232,160,48,0.09)" : "transparent",
-                border:       `1px solid ${on ? A : "#242424"}`,
-                borderRadius: "6px",
-                padding:      "11px 14px",
-                marginBottom: "6px",
-                cursor:       "pointer",
-                touchAction:  "manipulation",
-                transition:   "all 0.12s",
-              }}>
-                <span style={{ fontSize:"13px", fontWeight: on ? 600 : 400, color: on ? A : "#666" }}>
-                  {m.short}
-                </span>
-                <span style={{ fontFamily:"monospace", fontSize:"11px", color: on ? "rgba(232,160,48,0.55)" : "#333" }}>
-                  ±0 EV
-                </span>
-              </button>
-            );
-          })}
-          {/* altri — griglia 2×2 */}
+          {chip(first, true)}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px" }}>
-            {rest.map(m => {
-              const on = current === m.id;
-              return (
-                <button key={m.id} onClick={() => onSelect(m.id)} style={{
-                  background:   on ? "rgba(232,160,48,0.09)" : "transparent",
-                  border:       `1px solid ${on ? A : "#242424"}`,
-                  borderRadius: "6px",
-                  padding:      "11px 12px",
-                  cursor:       "pointer",
-                  touchAction:  "manipulation",
-                  textAlign:    "left",
-                  transition:   "all 0.12s",
-                }}>
-                  <div style={{ fontSize:"13px", fontWeight: on ? 600 : 400,
-                    color: on ? A : "#666", lineHeight:"1.3" }}>
-                    {m.short}
-                  </div>
-                  <div style={{ fontFamily:"monospace", fontSize:"11px",
-                    color: on ? "rgba(232,160,48,0.55)" : "#333", marginTop:"3px" }}>
-                    −{m.stops.toFixed(1)} EV
-                  </div>
-                </button>
-              );
-            })}
+            {rest.map(m => chip(m, false))}
           </div>
         </div>
       );
     }
 
-    // ─── app ─────────────────────────────────────────────────────────────────
+    // ── app ──────────────────────────────────────────────────────────────────
 
     function FlashCalc() {
-      const [gn,   setGn]   = useState(60);
-      const [zoom, setZoom] = useState(50);
-      const [dist, setDist] = useState(2.0);
-      const [iso,  setIso]  = useState(100);
-      const [apt,  setApt]  = useState(8);
-      const [mod,  setMod]  = useState("none");
+      const [gn,    setGn]    = useState(60);
+      const [gnRef, setGnRef] = useState(200);
+      const [zoom,  setZoom]  = useState(50);
+      const [dist,  setDist]  = useState(2.0);
+      const [iso,   setIso]   = useState(100);
+      const [apt,   setApt]   = useState(8);
+      const [mod,   setMod]   = useState("none");
 
       const modDef = MODIFIERS.find(m => m.id === mod);
       const R = useMemo(
-        () => calcFlash({ gn, zoom, distance: dist, iso, aperture: apt, modStops: modDef.stops }),
-        [gn, zoom, dist, iso, apt, modDef]
+        () => calcFlash({ gn, gnRef, zoom, distance: dist, iso, aperture: apt, modStops: modDef.stops }),
+        [gn, gnRef, zoom, dist, iso, apt, modDef]
       );
 
       return (
         <div style={{ background:BG, minHeight:"100vh" }}>
 
-          {/* header */}
           <div style={{ padding:"22px 18px 0", maxWidth:"960px", margin:"0 auto" }}>
-            <h1 style={{
-              fontFamily:"'Space Mono', monospace",
-              fontWeight: 700,
-              fontSize:   "22px",
-              letterSpacing: "3px",
-              textTransform: "uppercase",
-              color: "#fff",
-            }}>
+            <h1 style={{ fontFamily:"'Space Mono',monospace", fontWeight:700,
+              fontSize:"22px", letterSpacing:"3px", textTransform:"uppercase", color:"#fff" }}>
               Flash <span style={{ color:A }}>Power</span> Calc
             </h1>
           </div>
 
           <div className="layout">
 
-            {/* parametri */}
+            {/* parameters */}
             <div className="col-params" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
               <div style={{ ...LBL, marginBottom:"18px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
                 Parameters
               </div>
-              <RangeRow label="Guide Number" value={gn} onChange={setGn}
-                min={10} max={120} step={1} display={String(gn)} />
+
+              {/* GN + Ref Zoom */}
+              <div style={{ display:"flex", gap:"10px", marginBottom:"20px" }}>
+                <div style={{ flex:3, minWidth:0 }}>
+                  <div style={{ fontSize:"10px", letterSpacing:"1px", color:"#444",
+                    textTransform:"uppercase", marginBottom:"8px" }}>Guide Number</div>
+                  <input type="text" inputMode="numeric" value={gn}
+                    onChange={e => { const v=parseInt(e.target.value); if(!isNaN(v)&&v>=1) setGn(v); }}
+                    style={{ ...numInput, color:A }} />
+                </div>
+                <div style={{ flex:2, minWidth:0 }}>
+                  <div style={{ fontSize:"10px", letterSpacing:"1px", color:"#444",
+                    textTransform:"uppercase", marginBottom:"8px" }}>Ref. Zoom (mm)</div>
+                  <input type="text" inputMode="numeric" value={gnRef}
+                    onChange={e => { const v=parseInt(e.target.value); if(!isNaN(v)&&v>=1) setGnRef(v); }}
+                    style={{ ...numInput, color:"#888" }} />
+                </div>
+              </div>
+
               <RangeRow label="Distance" value={dist} onChange={setDist}
                 min={0.5} max={15} step={0.5} display={`${dist.toFixed(1)} m`} />
               <PillRow label="Flash Zoom" values={ZOOM_VALUES} current={zoom} onSelect={setZoom}
@@ -316,122 +271,85 @@
               <ApertureRow current={apt} onSelect={setApt} />
             </div>
 
-            {/* modificatori */}
+            {/* modifiers */}
             <div className="col-mods" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
               <ModifierGrid current={mod} onSelect={setMod} />
             </div>
 
-            {/* risultato */}
+            {/* result */}
             <div className="col-result" style={{
               background:     R.err ? S1 : `radial-gradient(ellipse at 50% 20%, rgba(232,160,48,0.08) 0%, ${S1} 65%)`,
               border:         `1px solid ${R.err ? "#1e1e1e" : "rgba(232,160,48,0.2)"}`,
-              borderRadius:   "10px",
-              padding:        "36px 24px",
-              display:        "flex",
-              flexDirection:  "column",
-              alignItems:     "center",
-              justifyContent: "center",
-              gap:            "10px",
-              minHeight:      "260px",
-              textAlign:      "center",
+              borderRadius:   "10px", padding:"36px 24px",
+              display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", gap:"10px",
+              minHeight:"260px", textAlign:"center",
             }}>
 
-              {R.err === "weak" && (
-                <>
-                  <div style={{ fontSize:"36px" }}>🔅</div>
-                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
-                    color:"#ef4444", letterSpacing:"1px" }}>FLASH TOO WEAK</div>
-                  <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
-                    Open aperture · Raise ISO<br />
-                    Move closer · Use higher GN flash
-                  </div>
-                </>
-              )}
+              {R.err === "weak" && <>
+                <div style={{ fontSize:"36px" }}>🔅</div>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
+                  color:"#ef4444", letterSpacing:"1px" }}>FLASH TOO WEAK</div>
+                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
+                  Open aperture · Raise ISO<br />Move closer · Use higher GN flash
+                </div>
+              </>}
 
-              {R.err === "strong" && (
-                <>
-                  <div style={{ fontSize:"36px" }}>⚡</div>
-                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
-                    color:"#f59e0b", letterSpacing:"1px" }}>FLASH TOO STRONG</div>
-                  <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
-                    Close aperture · Lower ISO<br />
-                    Move subject farther
-                  </div>
-                </>
-              )}
+              {R.err === "strong" && <>
+                <div style={{ fontSize:"36px" }}>⚡</div>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
+                  color:"#f59e0b", letterSpacing:"1px" }}>FLASH TOO STRONG</div>
+                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
+                  Close aperture · Lower ISO<br />Move subject farther
+                </div>
+              </>}
 
-              {!R.err && (
-                <>
-                  {/* potenza */}
-                  <div style={{
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize:   "clamp(58px, 14vw, 88px)",
-                    fontWeight: 700,
-                    color:      A,
-                    lineHeight: 1,
-                    letterSpacing: "-1px",
-                  }}>
-                    {R.label}
+              {!R.err && <>
+                <div style={{ fontFamily:"'Space Mono',monospace",
+                  fontSize:"clamp(58px,14vw,88px)", fontWeight:700,
+                  color:A, lineHeight:1, letterSpacing:"-1px" }}>
+                  {R.label}
+                </div>
+                <div style={{ display:"flex", alignItems:"baseline", gap:"7px", marginTop:"2px" }}>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"28px", fontWeight:700,
+                    color: R.offset > 0 ? "#d0d0d0" : "#252525" }}>
+                    +{R.offset.toFixed(1)}
+                  </span>
+                  <span style={{ fontSize:"11px", color:"#444", letterSpacing:"1px" }}>EV</span>
+                </div>
+                <div style={{ width:"100%", marginTop:"10px" }}>
+                  <div style={{ display:"flex", gap:"3px" }}>
+                    {POWER_LABELS.map((_, i) => (
+                      <div key={i} style={{
+                        flex:1, height:"5px", borderRadius:"2px",
+                        background: i===R.idx ? A : i<R.idx ? "rgba(232,160,48,0.18)" : "#1c1c1c",
+                        boxShadow:  i===R.idx ? `0 0 8px ${A}` : "none",
+                      }} />
+                    ))}
                   </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:"4px" }}>
+                    {POWER_LABELS.map((lbl, i) => {
+                      const last    = POWER_LABELS.length - 1;
+                      const visible = i===0 || i===last || i===R.idx;
+                      return (
+                        <span key={i} style={{
+                          fontFamily:"monospace", flex:1,
+                          fontSize:   i===0||i===last ? "9px" : "8px",
+                          fontWeight: i===0||i===last ? 700 : 400,
+                          color:      i===R.idx ? A : (i===0||i===last) ? "#444" : "transparent",
+                          textAlign:  i===0 ? "left" : i===last ? "right" : "center",
+                          transition: "color 0.2s",
+                        }}>{visible ? lbl : ""}</span>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px", textAlign:"center" }}>
+                  Starting point only. Always bracket on first roll.
+                </div>
+              </>}
 
-                  {/* offset — frazione di stop intermedia */}
-                  <div style={{ display:"flex", alignItems:"baseline", gap:"7px", marginTop:"2px" }}>
-                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"28px", fontWeight:700,
-                      color: R.offset > 0 ? "#d0d0d0" : "#252525" }}>
-                      +{R.offset.toFixed(1)}
-                    </span>
-                    <span style={{ fontSize:"11px", color:"#444", letterSpacing:"1px" }}>EV</span>
-                  </div>
-
-                  {/* barra */}
-                  <div style={{ width:"100%", marginTop:"10px" }}>
-                    <div style={{ display:"flex", gap:"3px" }}>
-                      {POWER_LABELS.map((_, i) => (
-                        <div key={i} style={{
-                          flex: 1, height:"5px", borderRadius:"2px",
-                          background:  i===R.idx ? A : i<R.idx ? "rgba(232,160,48,0.18)" : "#1c1c1c",
-                          boxShadow:   i===R.idx ? `0 0 8px ${A}` : "none",
-                        }} />
-                      ))}
-                    </div>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginTop:"4px" }}>
-                      {POWER_LABELS.map((lbl, i) => {
-                        const last    = POWER_LABELS.length - 1;
-                        const visible = i === 0 || i === last || i === R.idx;
-                        return (
-                          <span key={i} style={{
-                            fontFamily: "monospace",
-                            fontSize:   i === 0 || i === last ? "9px" : "8px",
-                            fontWeight: i === 0 || i === last ? 700 : 400,
-                            color:      i === R.idx ? A : (i === 0 || i === last) ? "#444" : "transparent",
-                            flex:       1,
-                            textAlign:  i === 0 ? "left" : i === last ? "right" : "center",
-                            transition: "color 0.2s",
-                          }}>{visible ? lbl : ""}</span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* dettaglio */}
-                  <div style={{ marginTop:"8px", fontFamily:"monospace", fontSize:"11px",
-                    color:"#333", lineHeight:"1.9" }}>
-                    GN<sub>eff</sub> {R.gnEff.toFixed(1)} · f/{R.fMax.toFixed(1)} @ 1/1
-                    {modDef.stops > 0 && (
-                      <span><br />mod −{modDef.stops.toFixed(1)} EV ({modDef.short})</span>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
-
-            {/* nota — sotto il fieldset della potenza */}
-            <div className="col-note" style={{ fontSize:"11px", color:"#383838",
-              lineHeight:"1.7", textAlign:"center", padding:"2px 4px" }}>
-              Starting point only — subject reflectance, modifier efficiency and GN tolerances<br />
-              may shift exposure by ±1–2 stops. Always bracket on first roll.
-            </div>
-
           </div>
         </div>
       );
