@@ -75,11 +75,13 @@
 
     // Il modificatore assorbe luce → riduce l'eccesso di potenza disponibile
     const MODIFIERS = [
-      { id: "none",    short: "Diretto",            stops: 0   },
-      { id: "refl",    short: "Ombrello riflettente",stops: 1.0 },
-      { id: "thru",    short: "Ombrello traslucido", stops: 1.5 },
-      { id: "softbox", short: "Softbox",             stops: 1.5 },
-      { id: "bounce",  short: "Rimbalzo bianco",      stops: 2.5 },
+      { id: "none",   short: "Direct",             stops: 0   },
+      { id: "refl",   short: "Reflective umbrella", stops: 1.0 },
+      { id: "thru",   short: "Shoot-through umbrella",  stops: 1.5 },
+      { id: "sb60",   short: "Softbox 60 cm",        stops: 1.0 },
+      { id: "sb90",   short: "Softbox 90 cm",        stops: 1.5 },
+      { id: "sb120",  short: "Softbox 120 cm",       stops: 2.0 },
+      { id: "bounce", short: "White bounce",       stops: 2.5 },
     ];
 
     const A  = "#E8A030";
@@ -97,10 +99,13 @@
         Errore < ±0.25 EV su 24–200 mm.
 
         GN_eff   = GN × (zoom/200)^(1/3) × √(ISO/100)
-        f_max    = GN_eff / distanza
+        f_max    = GN_eff / distance
         stops    = 2×log₂(f_max / f_set) − mod_stops
-        idx      = ⌈stops⌉          → livello di potenza (1/1 … 1/128)
-        offset   = idx − stops      → frazione di stop da aggiungere (0.0 … 0.9)
+
+      Granularità mezzo stop: il risultato viene arrotondato al mezzo stop più
+      vicino (0.0 o +0.5), coerente con l'incertezza reale del sistema
+      (riflettività soggetto, variazioni GN, modificatori) e con i valori
+      impostabili sul flash.
     */
     function calcFlash({ gn, zoom, distance, iso, aperture, modStops }) {
       const gnEff     = gn * Math.pow(zoom / 200, 1/3) * Math.sqrt(iso / 100);
@@ -108,13 +113,16 @@
       const stopsBase = 2 * Math.log2(fMax / aperture);
       const stops     = stopsBase - modStops;
 
-      if (stops < -0.05) return { err: "weak",   gnEff, fMax };
-      if (stops > 8.95)  return { err: "strong",  gnEff, fMax };
+      if (stops < -0.5) return { err: "weak",   gnEff, fMax };
+      if (stops > 8.0)  return { err: "strong",  gnEff, fMax };
 
-      const s      = Math.max(0, Math.min(8.9999, stops));
-      let   idx    = Math.ceil(s - 0.0001);
-      let   offset = Math.round((idx - s) * 10) / 10;
-      if (offset >= 1) { idx = Math.max(0, idx - 1); offset = 0; }
+      // Arrotonda al mezzo stop più vicino
+      const sRound = Math.round(Math.max(0, Math.min(8.0, stops)) * 2) / 2;
+      let   idx    = Math.ceil(sRound - 0.001);
+      let   offset = Math.round((idx - sRound) * 10) / 10; // 0.0 o 0.5
+
+      // 1/256 (idx=8) non può avere offset positivo
+      if (idx === 8 && offset > 0) return { err: "strong", gnEff, fMax };
 
       return { err: null, idx, label: POWER_LABELS[idx], offset, gnEff, fMax };
     }
@@ -177,7 +185,7 @@
       const row2 = APERTURES.slice(6);
       return (
         <div style={{ marginBottom: "4px" }}>
-          <div style={{ ...LBL, marginBottom:"8px" }}>Diaframma</div>
+          <div style={{ ...LBL, marginBottom:"8px" }}>Aperture</div>
           <div style={{ display:"flex", gap:"3px", marginBottom:"3px" }}>
             {row1.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect}
               fmt={v => `f/${v}`} />)}
@@ -190,14 +198,14 @@
       );
     }
 
-    // Modificatori: Diretto su riga intera + griglia 2×2
+    // Modifiers: Direct full-width + 2×2 grid
     function ModifierGrid({ current, onSelect }) {
       const first = MODIFIERS[0];
       const rest  = MODIFIERS.slice(1);
       return (
         <div>
           <div style={{ ...LBL, marginBottom:"10px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
-            Modificatori
+            Modifiers
           </div>
           {/* Diretto — full width */}
           {[first].map(m => {
@@ -295,13 +303,13 @@
             {/* parametri */}
             <div className="col-params" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
               <div style={{ ...LBL, marginBottom:"18px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
-                Parametri
+                Parameters
               </div>
-              <RangeRow label="Numero Guida" value={gn} onChange={setGn}
+              <RangeRow label="Guide Number" value={gn} onChange={setGn}
                 min={10} max={120} step={1} display={String(gn)} />
-              <RangeRow label="Distanza" value={dist} onChange={setDist}
+              <RangeRow label="Distance" value={dist} onChange={setDist}
                 min={0.5} max={15} step={0.5} display={`${dist.toFixed(1)} m`} />
-              <PillRow label="Zoom Flash" values={ZOOM_VALUES} current={zoom} onSelect={setZoom}
+              <PillRow label="Flash Zoom" values={ZOOM_VALUES} current={zoom} onSelect={setZoom}
                 fmt={v => `${v}`} />
               <PillRow label="ISO" values={ISO_VALUES} current={iso} onSelect={setIso} />
               <ApertureRow current={apt} onSelect={setApt} />
@@ -331,10 +339,10 @@
                 <>
                   <div style={{ fontSize:"36px" }}>🔅</div>
                   <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
-                    color:"#ef4444", letterSpacing:"1px" }}>FLASH INSUFFICIENTE</div>
+                    color:"#ef4444", letterSpacing:"1px" }}>FLASH TOO WEAK</div>
                   <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
-                    Apri il diaframma · Aumenta ISO<br />
-                    Avvicina il soggetto · GN maggiore
+                    Open aperture · Raise ISO<br />
+                    Move closer · Use higher GN flash
                   </div>
                 </>
               )}
@@ -343,10 +351,10 @@
                 <>
                   <div style={{ fontSize:"36px" }}>⚡</div>
                   <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
-                    color:"#f59e0b", letterSpacing:"1px" }}>POTENZA ECCESSIVA</div>
+                    color:"#f59e0b", letterSpacing:"1px" }}>FLASH TOO STRONG</div>
                   <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
-                    Chiudi il diaframma · Riduci ISO<br />
-                    Allontana il soggetto
+                    Close aperture · Lower ISO<br />
+                    Move subject farther
                   </div>
                 </>
               )}
@@ -386,10 +394,21 @@
                       ))}
                     </div>
                     <div style={{ display:"flex", justifyContent:"space-between", marginTop:"4px" }}>
-                      {POWER_LABELS.map((lbl, i) => (
-                        <span key={i} style={{ fontFamily:"monospace", fontSize:"8px",
-                          color: i===R.idx ? A : "#2a2a2a" }}>{lbl}</span>
-                      ))}
+                      {POWER_LABELS.map((lbl, i) => {
+                        const last    = POWER_LABELS.length - 1;
+                        const visible = i === 0 || i === last || i === R.idx;
+                        return (
+                          <span key={i} style={{
+                            fontFamily: "monospace",
+                            fontSize:   i === 0 || i === last ? "9px" : "8px",
+                            fontWeight: i === 0 || i === last ? 700 : 400,
+                            color:      i === R.idx ? A : (i === 0 || i === last) ? "#444" : "transparent",
+                            flex:       1,
+                            textAlign:  i === 0 ? "left" : i === last ? "right" : "center",
+                            transition: "color 0.2s",
+                          }}>{visible ? lbl : ""}</span>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -400,6 +419,15 @@
                     {modDef.stops > 0 && (
                       <span><br />mod −{modDef.stops.toFixed(1)} EV ({modDef.short})</span>
                     )}
+                  </div>
+                  {/* nota indicativa */}
+                  <div style={{ marginTop:"14px", padding:"10px 12px",
+                    background:"rgba(255,255,255,0.03)", borderRadius:"6px",
+                    border:"1px solid #1e1e1e", fontSize:"10px", color:"#404040",
+                    lineHeight:"1.7", textAlign:"center", maxWidth:"260px" }}>
+                    Starting point only. Subject reflectance, modifier efficiency,
+                    and GN tolerances may shift exposure by ±1–2 stops.
+                    Always bracket on first roll.
                   </div>
                 </>
               )}
