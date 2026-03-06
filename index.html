@@ -58,6 +58,7 @@
       .col-params { grid-column: 1; grid-row: 1; }
       .col-mods   { grid-column: 1; grid-row: 2; }
       .col-result { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; align-self: start; }
+      .col-note   { grid-column: 2; grid-row: 3; }
     }
   </style>
 </head>
@@ -420,18 +421,17 @@
                       <span><br />mod −{modDef.stops.toFixed(1)} EV ({modDef.short})</span>
                     )}
                   </div>
-                  {/* nota indicativa */}
-                  <div style={{ marginTop:"14px", padding:"10px 12px",
-                    background:"rgba(255,255,255,0.03)", borderRadius:"6px",
-                    border:"1px solid #1e1e1e", fontSize:"10px", color:"#404040",
-                    lineHeight:"1.7", textAlign:"center", maxWidth:"260px" }}>
-                    Starting point only. Subject reflectance, modifier efficiency,
-                    and GN tolerances may shift exposure by ±1–2 stops.
-                    Always bracket on first roll.
-                  </div>
                 </>
               )}
             </div>
+
+            {/* nota — sotto il fieldset della potenza */}
+            <div className="col-note" style={{ fontSize:"11px", color:"#383838",
+              lineHeight:"1.7", textAlign:"center", padding:"2px 4px" }}>
+              Starting point only — subject reflectance, modifier efficiency and GN tolerances<br />
+              may shift exposure by ±1–2 stops. Always bracket on first roll.
+            </div>
+
           </div>
         </div>
       );
