@@ -70,8 +70,8 @@
     // ─── dati ────────────────────────────────────────────────────────────────
     const APERTURES    = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
     const ISO_VALUES   = [100, 200, 400, 800, 1600, 3200];
-    const ZOOM_VALUES  = [24, 28, 35, 50, 70, 85, 105, 135, 200];
-    const POWER_LABELS = ["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128"];
+    const ZOOM_VALUES  = [20, 24, 28, 35, 50, 70, 85, 105, 135, 200];
+    const POWER_LABELS = ["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128","1/256"];
 
     // Il modificatore assorbe luce → riduce l'eccesso di potenza disponibile
     const MODIFIERS = [
@@ -109,9 +109,9 @@
       const stops     = stopsBase - modStops;
 
       if (stops < -0.05) return { err: "weak",   gnEff, fMax };
-      if (stops > 7.95)  return { err: "strong",  gnEff, fMax };
+      if (stops > 8.95)  return { err: "strong",  gnEff, fMax };
 
-      const s      = Math.max(0, Math.min(7.9999, stops));
+      const s      = Math.max(0, Math.min(8.9999, stops));
       let   idx    = Math.ceil(s - 0.0001);
       let   offset = Math.round((idx - s) * 10) / 10;
       if (offset >= 1) { idx = Math.max(0, idx - 1); offset = 0; }
