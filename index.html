@@ -29,24 +29,47 @@
       background: #E8A030; cursor: pointer; border: 2px solid #0a0a0a;
     }
 
+    /* mobile: scroll content, result fixed at bottom */
     .layout {
       display: grid;
       grid-template-columns: 1fr;
       gap: 10px;
-      padding: 16px 14px 48px;
+      padding: 16px 14px 140px;
       max-width: 960px;
       margin: 0 auto;
     }
+    .col-result {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      border-radius: 12px 12px 0 0;
+      z-index: 10;
+    }
+    .col-result .power-bar { display: none; }
+    .power-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    /* desktop: normal grid */
     @media (min-width: 700px) {
       .layout {
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto;
         padding: 24px 24px 56px;
         gap: 14px;
       }
       .col-params { grid-column: 1; grid-row: 1; }
       .col-mods   { grid-column: 1; grid-row: 2; }
-      .col-result { grid-column: 2; grid-row: 1 / 3; align-self: start; }
+      .col-result {
+        grid-column: 2; grid-row: 1 / 3;
+        position: static;
+        border-radius: 10px;
+        align-self: start;
+      }
+      .col-result .power-bar { display: block; }
+      .power-row { gap: 10px; }
     }
   </style>
 </head>
@@ -80,8 +103,7 @@
     /*
       GN dichiarato allo zoom di riferimento gnRef, ISO 100.
       GN_eff = GN × (zoom/gnRef)^(1/3) × √(ISO/100)
-      Esponente 1/3 da dati reali su 5 flash (Tealdi 2020) e Godox V860III.
-      Granularità mezzo stop.
+      Esponente 1/3 (Tealdi 2020, Godox V860III). Granularità mezzo stop.
     */
     function calcFlash({ gn, gnRef, zoom, distance, iso, aperture, modStops }) {
       const gnEff     = gn * Math.pow(zoom / gnRef, 1/3) * Math.sqrt(iso / 100);
@@ -274,46 +296,49 @@
 
             {/* result */}
             <div className="col-result" style={{
-              background:   R.err ? S1 : `radial-gradient(ellipse at 50% 20%, rgba(232,160,48,0.08) 0%, ${S1} 65%)`,
-              border:       `1px solid ${R.err ? "#1e1e1e" : "rgba(232,160,48,0.2)"}`,
-              borderRadius: "10px", padding:"36px 24px",
-              display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", gap:"10px",
-              minHeight:"260px", textAlign:"center",
+              background:   R.err ? "#111" : `radial-gradient(ellipse at 50% 0%, rgba(232,160,48,0.10) 0%, #111 60%)`,
+              border:       `1px solid ${R.err ? "#222" : "rgba(232,160,48,0.2)"}`,
+              borderTop:    `1px solid ${R.err ? "#2a2a2a" : "rgba(232,160,48,0.3)"}`,
+              padding:      "18px 24px 20px",
+              display:      "flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", gap:"8px", textAlign:"center",
             }}>
 
               {R.err === "weak" && <>
-                <div style={{ fontSize:"36px" }}>🔅</div>
+                <div style={{ fontSize:"26px" }}>🔅</div>
                 <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
                   color:"#ef4444", letterSpacing:"1px" }}>FLASH TOO WEAK</div>
-                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
+                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2" }}>
                   Open aperture · Raise ISO<br />Move closer · Use higher GN flash
                 </div>
               </>}
 
               {R.err === "strong" && <>
-                <div style={{ fontSize:"36px" }}>⚡</div>
+                <div style={{ fontSize:"26px" }}>⚡</div>
                 <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
                   color:"#f59e0b", letterSpacing:"1px" }}>FLASH TOO STRONG</div>
-                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px" }}>
+                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2" }}>
                   Close aperture · Lower ISO<br />Move subject farther
                 </div>
               </>}
 
               {!R.err && <>
-                <div style={{ fontFamily:"'Space Mono',monospace",
-                  fontSize:"clamp(58px,14vw,88px)", fontWeight:700,
-                  color:A, lineHeight:1, letterSpacing:"-1px" }}>
-                  {R.label}
-                </div>
-                <div style={{ display:"flex", alignItems:"baseline", gap:"7px", marginTop:"2px" }}>
-                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"28px", fontWeight:700,
-                    color: R.offset > 0 ? "#d0d0d0" : "#252525" }}>
-                    +{R.offset.toFixed(1)}
+                <div className="power-row">
+                  <span style={{ fontFamily:"'Space Mono',monospace",
+                    fontSize:"clamp(42px,10vw,88px)", fontWeight:700,
+                    color:A, lineHeight:1, letterSpacing:"-1px" }}>
+                    {R.label}
                   </span>
-                  <span style={{ fontSize:"11px", color:"#444", letterSpacing:"1px" }}>EV</span>
+                  <div style={{ display:"flex", alignItems:"baseline", gap:"4px" }}>
+                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"22px", fontWeight:700,
+                      color: R.offset > 0 ? "#d0d0d0" : "#252525" }}>
+                      +{R.offset.toFixed(1)}
+                    </span>
+                    <span style={{ fontSize:"11px", color:"#444", letterSpacing:"1px" }}>EV</span>
+                  </div>
                 </div>
-                <div style={{ width:"100%", marginTop:"10px" }}>
+
+                <div className="power-bar" style={{ width:"100%", marginTop:"6px" }}>
                   <div style={{ display:"flex", gap:"3px" }}>
                     {POWER_LABELS.map((_, i) => (
                       <div key={i} style={{
@@ -323,7 +348,7 @@
                       }} />
                     ))}
                   </div>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:"4px" }}>
+                  <div style={{ display:"flex", marginTop:"4px" }}>
                     {POWER_LABELS.map((lbl, i) => {
                       const last    = POWER_LABELS.length - 1;
                       const visible = i===0 || i===last || i===R.idx;
@@ -340,7 +365,8 @@
                     })}
                   </div>
                 </div>
-                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", marginTop:"4px", textAlign:"center" }}>
+
+                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", textAlign:"center" }}>
                   Starting point only. Always bracket on first roll.
                 </div>
               </>}
