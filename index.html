@@ -4,395 +4,918 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flash Power Calc</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
+
   <style>
+    /* ── Design tokens ────────────────────────────────────────────────────── */
+    :root {
+      --bg:           #0a0a0a;
+      --surface-1:    #111111;
+      --surface-2:    #181818;
+      --surface-3:    #222222;
+      --border:       #2a2a2a;
+      --text-dim:     #444444;
+      --text-mid:     #666666;
+      --text-base:    #d0d0d0;
+      --accent:       #e8a030;
+      --accent-dim:   rgba(232, 160, 48, 0.14);
+      --accent-glow:  rgba(232, 160, 48, 0.30);
+      --error:        #ef4444;
+      --warn:         #f59e0b;
+      --font-mono:    "Space Mono", "Courier New", monospace;
+      --font-ui:      system-ui, -apple-system, sans-serif;
+      --r-sm:         4px;
+      --r-md:         8px;
+      --r-lg:         12px;
+      --ease:         0.12s ease;
+    }
+
+    /* ── Reset ────────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { background: #0a0a0a; min-height: 100vh; }
-    body { font-family: system-ui, -apple-system, sans-serif; color: #e0e0e0; }
 
-    input[type=range] {
-      -webkit-appearance: none; appearance: none;
-      width: 100%; height: 4px; border-radius: 2px; outline: none; cursor: pointer;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
-      background: #E8A030; cursor: pointer; border: 3px solid #0a0a0a;
-      box-shadow: 0 0 8px rgba(232,160,48,0.45);
-    }
-    a.footer-link { color: #666; text-decoration: none; border-bottom: 1px solid #333; transition: color .15s, border-color .15s; }
-    a.footer-link:hover { color: #E8A030; border-bottom-color: rgba(232,160,48,0.5); }
-    input[type=range]::-moz-range-thumb {
-      width: 18px; height: 18px; border-radius: 50%;
-      background: #E8A030; cursor: pointer; border: 2px solid #0a0a0a;
+    /* ── Base ─────────────────────────────────────────────────────────────── */
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-base);
+      font-family: var(--font-ui);
+      min-height: 100dvh;
+      line-height: 1.5;
     }
 
+    a {
+      color: var(--text-mid);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      transition: color var(--ease), border-color var(--ease);
+    }
+    a:hover { color: var(--accent); border-bottom-color: var(--accent-glow); }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
     .layout {
       display: grid;
       grid-template-columns: 1fr;
       gap: 10px;
-      padding: 16px 14px 160px;
-      max-width: 960px;
-      margin: 0 auto;
-    }
-    .col-result {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      border-radius: 12px 12px 0 0;
-      z-index: 10;
-    }
-    .col-result .power-bar { display: none; }
-    .power-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      gap: 16px;
+      padding: 14px 12px 180px;
+      max-width: 1000px;
+      margin-inline: auto;
     }
 
     @media (min-width: 700px) {
       .layout {
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto auto;
-        padding: 24px 24px 56px;
+        padding: 24px 24px 48px;
         gap: 14px;
       }
-      .col-title  { grid-column: 1 / 3; grid-row: 1; }
-      .col-params { grid-column: 1; grid-row: 2; }
-      .col-mods   { grid-column: 1; grid-row: 3; }
-      .col-result {
-        grid-column: 2; grid-row: 2 / 4;
+      #col-header { grid-column: 1 / 3; }
+      #col-params { grid-column: 1; grid-row: 2; }
+      #col-mods   { grid-column: 1; grid-row: 3; }
+      #col-result { grid-column: 2; grid-row: 2 / 4; align-self: start; }
+      #col-footer { grid-column: 2; align-self: start; }
+    }
+
+    /* ── Card ─────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 20px 16px;
+    }
+
+    .card__title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--surface-3);
+    }
+
+    /* ── Field ────────────────────────────────────────────────────────────── */
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field__label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .label-text {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .label-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* ── Select ───────────────────────────────────────────────────────────── */
+    .select-wrap { position: relative; }
+
+    .select-wrap::after {
+      content: "";
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--text-mid);
+      border-bottom-width: 0;
+      pointer-events: none;
+    }
+
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      background: var(--surface-2);
+      color: var(--text-base);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 10px 36px 10px 12px;
+      font-size: 13px;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--ease);
+    }
+    select:focus { border-color: var(--accent); }
+
+    .flash-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+    .flash-meta b  { color: var(--accent); font-weight: 700; }
+    .flash-meta em {
+      font-style: normal;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: var(--surface-3);
+      color: var(--text-mid);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    /* ── Range ────────────────────────────────────────────────────────────── */
+    input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 3px solid var(--bg);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 2px solid var(--bg);
+    }
+
+    /* ── Pills ────────────────────────────────────────────────────────────── */
+    .pill-group { display: flex; gap: 3px; }
+    .pill-group + .pill-group { margin-top: 3px; }
+
+    .pill {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 8px 2px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      border-radius: var(--r-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-mid);
+      cursor: pointer;
+      line-height: 1;
+      text-align: center;
+      touch-action: manipulation;
+      transition: background var(--ease), color var(--ease), border-color var(--ease);
+    }
+    .pill:hover:not(.pill--on) { border-color: var(--text-mid); color: var(--text-base); }
+    .pill--on {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* ── Modifier chips ───────────────────────────────────────────────────── */
+    .mod-chip {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 11px 14px;
+      cursor: pointer;
+      text-align: left;
+      background: transparent;
+      transition: background var(--ease), border-color var(--ease);
+    }
+    .mod-chip:hover:not(.mod-chip--on) { border-color: var(--text-mid); }
+    .mod-chip--on { background: var(--accent-dim); border-color: var(--accent); }
+
+    .mod-chip__label {
+      font-size: 13px;
+      color: var(--text-mid);
+      line-height: 1.3;
+      transition: color var(--ease);
+    }
+    .mod-chip--on .mod-chip__label { color: var(--accent); font-weight: 600; }
+
+    .mod-chip__ev {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+      transition: color var(--ease);
+    }
+    .mod-chip--on .mod-chip__ev { color: rgba(232, 160, 48, 0.5); }
+
+    .mod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+    .mod-grid .mod-chip { padding: 10px 12px; }
+
+    /* ── Result panel ─────────────────────────────────────────────────────── */
+    #col-result {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      background: var(--surface-1);
+      padding: 16px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      transition: background var(--ease), border-color var(--ease);
+    }
+
+    @media (min-width: 700px) {
+      #col-result {
         position: static;
-        border-radius: 10px;
-        align-self: start;
+        border-radius: var(--r-lg);
+        border-bottom: 1px solid var(--border);
+        padding: 24px 20px;
       }
-      .col-result .power-bar { display: block; }
-      .power-row { gap: 10px; }
-      .col-footer { grid-column: 2; grid-row: 4; align-self: start; }
+    }
+
+    /* Result states */
+    .res { display: none; flex-direction: column; align-items: center; gap: 8px; }
+    .res--on { display: flex; }
+
+    .res__icon  { font-size: 28px; }
+    .res__title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.5px; }
+    .res__title--err  { color: var(--error); }
+    .res__title--warn { color: var(--warn); }
+    .res__tip   { font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+    .res__hint  { font-size: 11px; color: var(--text-dim); line-height: 1.7; }
+
+    /* Power display */
+    .power-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .power-frac {
+      font-family: var(--font-mono);
+      font-size: clamp(44px, 11vw, 88px);
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+
+    .power-ev { display: flex; align-items: baseline; gap: 3px; }
+    .power-ev__val  { font-family: var(--font-mono); font-size: 20px; font-weight: 700; }
+    .power-ev__unit { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+    /* Bar */
+    .power-bar { display: none; width: 100%; margin-top: 4px; }
+    @media (min-width: 700px) { .power-bar { display: block; } }
+
+    .bar-track { display: flex; gap: 3px; }
+
+    .bar-seg {
+      flex: 1;
+      height: 5px;
+      border-radius: 2px;
+      background: var(--surface-3);
+      transition: background var(--ease), box-shadow var(--ease);
+    }
+    .bar-seg--on   { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+    .bar-seg--past { background: var(--accent-dim); }
+
+    .bar-labels { display: flex; margin-top: 4px; }
+    .bar-lbl {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: transparent;
+    }
+    .bar-lbl--l    { text-align: left; }
+    .bar-lbl--r    { text-align: right; }
+    .bar-lbl--c    { text-align: center; }
+    .bar-lbl--edge { color: var(--text-dim); }
+    .bar-lbl--on   { color: var(--accent); }
+
+    /* ── Header / Footer ──────────────────────────────────────────────────── */
+    .app-title {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #fff;
+      padding: 4px 2px;
+    }
+    .app-title span { color: var(--accent); }
+
+    .footer {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-align: right;
+      line-height: 1.7;
+      padding: 4px 2px;
+    }
+
+    /* ── Accessibility ────────────────────────────────────────────────────── */
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
     }
   </style>
 </head>
+
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useMemo } = React;
+<div class="layout">
 
-    const APERTURES    = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
-    const ISO_VALUES   = [100, 200, 400, 800, 1600, 3200];
-    const ZOOM_VALUES  = [20, 24, 28, 35, 50, 70, 85, 105, 135, 200];
-    const GN_VALUES    = [15, 18, 20, 24, 28, 32, 36, 40, 45, 50, 56, 60, 76, 92, 120];
-    const POWER_LABELS = ["1/1","1/2","1/4","1/8","1/16","1/32","1/64","1/128","1/256"];
+  <!-- Header -->
+  <header id="col-header">
+    <h1 class="app-title">Flash <span>Power</span> Calc</h1>
+  </header>
 
-    const MODIFIERS = [
-      { id: "none",   short: "Direct",                stops: 0   },
-      { id: "refl",   short: "Reflective umbrella",   stops: 0.5 },
-      { id: "thru",   short: "Shoot-through umbrella",stops: 1.0 },
-      { id: "sb60",   short: "Softbox 60 cm",         stops: 0.5 },
-      { id: "sb90",   short: "Softbox 90 cm",         stops: 1.0 },
-      { id: "sb120",  short: "Softbox 120 cm",        stops: 1.5 },
-      { id: "bounce", short: "White bounce",           stops: 1.0 },
-    ];
+  <!-- Parameters -->
+  <section id="col-params" class="card" aria-label="Flash parameters">
+    <p class="card__title">Parameters</p>
 
-    const A   = "#E8A030";
-    const BG  = "#0a0a0a";
-    const S1  = "#141414";
-    const S2  = "#1c1c1c";
-    const LBL = { fontSize:"11px", letterSpacing:"1.5px", color:"#555", textTransform:"uppercase" };
+    <div class="field">
+      <div class="field__label"><span class="label-text">Flash</span></div>
+      <div class="select-wrap">
+        <select id="sel-flash" aria-label="Flash model"></select>
+      </div>
+      <div class="flash-meta" id="flash-meta" aria-live="polite"></div>
+    </div>
 
-    /*
-      GN dichiarato allo zoom di riferimento gnRef, ISO 100.
-      GN_eff = GN × (zoom/gnRef)^(1/3) × √(ISO/100)
-      Esponente 1/3 (Tealdi 2020, Godox V860III). Granularità mezzo stop.
-    */
-    function calcFlash({ gn, gnRef, zoom, distance, iso, aperture, modStops }) {
-      const gnEff     = gn * Math.pow(zoom / gnRef, 1/3) * Math.sqrt(iso / 100);
-      const fMax      = gnEff / distance;
-      const stopsBase = 2 * Math.log2(fMax / aperture);
-      const stops     = stopsBase - modStops;
+    <div class="field" id="zoom-field">
+      <div class="field__label"><span class="label-text">Flash Zoom</span></div>
+      <div class="pill-group" id="zoom-pills" role="group" aria-label="Flash zoom"></div>
+    </div>
 
-      if (stops < -0.5) return { err: "weak",  gnEff, fMax };
-      if (stops > 8.0)  return { err: "strong", gnEff, fMax };
+    <div class="field">
+      <div class="field__label">
+        <span class="label-text">Distance</span>
+        <span class="label-value" id="dist-val" aria-live="polite">1.0 m</span>
+      </div>
+      <input
+        type="range"
+        id="dist-slider"
+        min="0.5" max="15" step="0.5" value="1"
+        aria-label="Flash-to-subject distance"
+        aria-valuetext="1.0 metres"
+      />
+    </div>
 
-      const sRound = Math.round(Math.max(0, Math.min(8.0, stops)) * 2) / 2;
-      let   idx    = Math.ceil(sRound - 0.001);
-      let   offset = Math.round((idx - sRound) * 10) / 10;
-      if (idx === 8 && offset > 0) return { err: "strong", gnEff, fMax };
+    <div class="field">
+      <div class="field__label"><span class="label-text">ISO</span></div>
+      <div class="pill-group" id="iso-pills" role="group" aria-label="ISO"></div>
+    </div>
 
-      return { err: null, idx, label: POWER_LABELS[idx], offset, gnEff, fMax };
-    }
+    <div class="field">
+      <div class="field__label"><span class="label-text">Aperture</span></div>
+      <div class="pill-group" id="apt-pills-a" role="group" aria-label="Aperture"></div>
+      <div class="pill-group" id="apt-pills-b" role="group" aria-label="Aperture (continued)"></div>
+    </div>
+  </section>
 
-    function Pill({ v, current, onSelect, fmt }) {
-      const on = v === current;
-      return (
-        <button onClick={() => onSelect(v)} style={{
-          background: on ? A : S2, color: on ? "#000" : "#666",
-          border: `1px solid ${on ? A : "#282828"}`, borderRadius: "4px",
-          padding: "9px 2px", fontSize: "12px", fontFamily: "monospace",
-          fontWeight: on ? 700 : 400, cursor: "pointer", touchAction: "manipulation",
-          lineHeight: "1", flex: "1 1 0", minWidth: 0,
-        }}>
-          {fmt ? fmt(v) : v}
-        </button>
-      );
-    }
+  <!-- Modifiers -->
+  <section id="col-mods" class="card" aria-label="Light modifiers">
+    <p class="card__title">Modifiers</p>
+    <div id="mod-direct"></div>
+    <div class="mod-grid" id="mod-grid"></div>
+  </section>
 
-    function RangeRow({ label, value, onChange, min, max, step, display }) {
-      const pct = ((value - min) / (max - min)) * 100;
-      const bg  = `linear-gradient(to right, ${A} 0%, ${A} ${pct}%, ${S2} ${pct}%, ${S2} 100%)`;
-      return (
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
-            <span style={LBL}>{label}</span>
-            <span style={{ fontSize:"15px", color:A, fontFamily:"monospace", fontWeight:700 }}>{display}</span>
-          </div>
-          <input type="range" min={min} max={max} step={step} value={value}
-            onChange={e => onChange(parseFloat(e.target.value))} style={{ background: bg }} />
+  <!-- Result -->
+  <section id="col-result" aria-label="Result" aria-live="polite">
+
+    <div id="res-weak" class="res" role="status">
+      <span class="res__icon">🌑</span>
+      <p class="res__title res__title--err">FLASH TOO WEAK</p>
+      <p class="res__tip">
+        Open aperture · Raise ISO<br>
+        Move closer · Use a more powerful flash
+      </p>
+    </div>
+
+    <div id="res-strong" class="res" role="status">
+      <span class="res__icon">⚡</span>
+      <p class="res__title res__title--warn">FLASH TOO STRONG</p>
+      <p class="res__tip">
+        Close aperture · Lower ISO<br>
+        Move subject farther away
+      </p>
+    </div>
+
+    <div id="res-ok" class="res" role="status">
+      <div class="power-row">
+        <span class="power-frac" id="power-frac"></span>
+        <div class="power-ev">
+          <span class="power-ev__val" id="ev-offset"></span>
+          <span class="power-ev__unit">EV</span>
         </div>
-      );
+      </div>
+      <div class="power-bar" aria-hidden="true">
+        <div class="bar-track" id="bar-track"></div>
+        <div class="bar-labels" id="bar-labels"></div>
+      </div>
+      <p class="res__hint">Starting point — always bracket on the first roll.</p>
+    </div>
+
+  </section>
+
+  <!-- Footer -->
+  <footer id="col-footer" class="footer">
+    &copy; 2026 Nicola Cionini /&nbsp;<a href="https://nicolacionini.it">nicolacionini.it</a>
+  </footer>
+
+</div>
+
+<script type="module">
+  /* ============================================================
+   * Flash Power Calc
+   * ============================================================
+   *
+   * Calculates the required manual power setting for a speedlight
+   * given flash model (GN + reference zoom), zoom, subject
+   * distance, ISO, aperture, and light modifier.
+   *
+   * FORMULA
+   *   gnEff = GN × (zoom / gnZoom)^(1/3) × √(ISO / 100)   [zoomable]
+   *   gnEff = GN × √(ISO / 100)                             [fixed head]
+   *   stops = 2 × log₂(gnEff / distance / aperture) − modStops
+   *
+   *   Power index (0 = 1/1, 8 = 1/256) = ceil(stops), clamped to [0, 8].
+   *
+   * ZOOM SCALING
+   *   The exponent 1/3 approximates the relationship between
+   *   beam-angle concentration and guide number for typical
+   *   zoom-reflector flashes. It is the accepted industry
+   *   approximation used by Sekonic, Metz, and flash-calc tools.
+   *
+   * DATA POLICY
+   *   All GN values are sourced from official manufacturer
+   *   manuals or primary retailer spec sheets (B&H, NikonUSA).
+   *   Models whose GN could not be confirmed are not listed.
+   *   Only hot-shoe speedlights and close equivalents are included;
+   *   battery-powered strobes (AD200 Pro, AD400 Pro, …) are excluded
+   *   regardless of published GN, as they are not speedlights.
+   *
+   * ============================================================ */
+
+  // ── Types (JSDoc) ───────────────────────────────────────────
+
+  /**
+   * @typedef {Object} Flash
+   * @property {string}      brand
+   * @property {string}      model
+   * @property {number}      gn      - Guide number, metres, ISO 100
+   * @property {number|null} gnZoom  - Reference zoom in mm; null = fixed head
+   */
+
+  /**
+   * @typedef {Object} Modifier
+   * @property {string} id
+   * @property {string} label
+   * @property {number} stops  - Light loss in EV stops (≥ 0)
+   */
+
+  /**
+   * @typedef {Object} CalcResult
+   * @property {"weak"|"strong"|null} err
+   * @property {number|undefined}     idx     - 0 (1/1) … 8 (1/256)
+   * @property {string|undefined}     label   - e.g. "1/8"
+   * @property {number|undefined}     offset  - fractional EV offset
+   */
+
+  /**
+   * @typedef {Object} State
+   * @property {number} flashIdx
+   * @property {number} zoom
+   * @property {number} dist
+   * @property {number} iso
+   * @property {number} apt
+   * @property {string} mod
+   */
+
+  // ── Flash data ───────────────────────────────────────────────
+  //
+  // Sources
+  //   Godox  — godox.com official product pages + manuals
+  //   Nikon  — nikon.com / nikonusa.com official spec pages
+  //   Canon  — bhphotovideo.com spec (Canon-sourced data)
+
+  /** @type {readonly Flash[]} */
+  const FLASHES = Object.freeze([
+    // ── Godox ────────────────────────────────────────────────────
+    // V860III/IV: GN 60 @200mm — godox.com V860III spec page
+    { brand: "Godox", model: "V860III",      gn: 60, gnZoom: 200 },
+    { brand: "Godox", model: "V860IV",       gn: 60, gnZoom: 200 },
+
+    // V1 / V1 Pro: GN 76 @105mm — godox.com V1 spec page
+    { brand: "Godox", model: "V1",           gn: 76, gnZoom: 105 },
+    { brand: "Godox", model: "V1 Pro",       gn: 76, gnZoom: 105 },
+
+    // TT685 II: GN 60 @200mm — godox.com TT685II spec page
+    { brand: "Godox", model: "TT685 II",     gn: 60, gnZoom: 200 },
+
+    // TT350: GN 36 @105mm — 118ft ÷ 3.281 = 35.96 m; godox.com TT350 spec
+    { brand: "Godox", model: "TT350",        gn: 36, gnZoom: 105 },
+
+    // iT30 Pro: GN 15 (fixed) — godox.com iT30Pro official manual
+    { brand: "Godox", model: "iT30 Pro",     gn: 15, gnZoom: null },
+
+    // MF12: GN 5 m (16 ft) — B&H / Godox MF12 spec sheet
+    { brand: "Godox", model: "MF12",         gn:  5, gnZoom: null },
+
+    // ── Nikon ────────────────────────────────────────────────────
+    // GN at 35mm, FX format, standard illumination pattern
+    // Source: official Nikon user manuals (nikon.com)
+    { brand: "Nikon", model: "SB-700",       gn: 28, gnZoom:  35 },
+    { brand: "Nikon", model: "SB-910",       gn: 34, gnZoom:  35 },
+    { brand: "Nikon", model: "SB-5000",      gn: 34, gnZoom:  35 },
+
+    // ── Canon ────────────────────────────────────────────────────
+    // Source: Canon spec sheets via bhphotovideo.com
+    { brand: "Canon", model: "600EX-RT",     gn: 60, gnZoom: 200 },
+    { brand: "Canon", model: "600EX II-RT",  gn: 60, gnZoom: 200 },
+    { brand: "Canon", model: "430EX III-RT", gn: 43, gnZoom: 105 },
+  ]);
+
+  /** @type {readonly number[]} */
+  const APERTURES = Object.freeze([1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32]);
+
+  /** @type {readonly number[]} */
+  const ISO_VALUES = Object.freeze([100, 200, 400, 800, 1600, 3200]);
+
+  /** @type {readonly number[]} */
+  const ZOOM_VALUES = Object.freeze([20, 24, 28, 35, 50, 70, 85, 105, 135, 200]);
+
+  /** @type {readonly string[]} */
+  const POWER_LABELS = Object.freeze(
+    ["1/1", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128", "1/256"],
+  );
+
+  /** @type {readonly Modifier[]} */
+  const MODIFIERS = Object.freeze([
+    { id: "none",   label: "Direct",                 stops: 0.0 },
+    { id: "refl",   label: "Reflective umbrella",    stops: 0.5 },
+    { id: "thru",   label: "Shoot-through umbrella", stops: 1.0 },
+    { id: "sb60",   label: "Softbox 60 cm",          stops: 0.5 },
+    { id: "sb90",   label: "Softbox 90 cm",          stops: 1.0 },
+    { id: "sb120",  label: "Softbox 120 cm",         stops: 1.5 },
+    { id: "bounce", label: "White bounce",           stops: 1.0 },
+  ]);
+
+  // ── State ────────────────────────────────────────────────────
+
+  /** @type {State} */
+  const S = { flashIdx: 0, zoom: 28, dist: 1.0, iso: 100, apt: 8, mod: "none" };
+
+  // ── Core calculation ─────────────────────────────────────────
+
+  /**
+   * Returns the required power setting for a correct exposure.
+   *
+   * @param {{
+   *   gn:       number,
+   *   gnZoom:   number|null,
+   *   zoom:     number,
+   *   distance: number,
+   *   iso:      number,
+   *   aperture: number,
+   *   modStops: number,
+   * }} p
+   * @returns {CalcResult}
+   */
+  function calcPower({ gn, gnZoom, zoom, distance, iso, aperture, modStops }) {
+    const isoScale = Math.sqrt(iso / 100);
+
+    const gnEff = gnZoom !== null
+      ? gn * Math.pow(zoom / gnZoom, 1 / 3) * isoScale
+      : gn * isoScale;
+
+    const stops = 2 * Math.log2(gnEff / distance / aperture) - modStops;
+
+    if (stops < -0.5) return { err: "weak" };
+    if (stops > 8.0)  return { err: "strong" };
+
+    const clamped = Math.max(0, Math.min(8.0, stops));
+    const rounded = Math.round(clamped * 2) / 2;
+    const idx     = Math.ceil(rounded - 0.001);
+    const offset  = Math.round((idx - rounded) * 10) / 10;
+
+    if (idx === 8 && offset > 0) return { err: "strong" };
+
+    return { err: null, idx, label: POWER_LABELS[idx], offset };
+  }
+
+  // ── CSS helpers ──────────────────────────────────────────────
+
+  /**
+   * Returns a CSS gradient for a range-input track fill.
+   * @param {number} value
+   * @param {number} min
+   * @param {number} max
+   * @returns {string}
+   */
+  function trackBg(value, min, max) {
+    const pct = ((value - min) / (max - min)) * 100;
+    return (
+      `linear-gradient(to right,` +
+      ` #e8a030 0%, #e8a030 ${pct}%,` +
+      ` #222222 ${pct}%, #222222 100%)`
+    );
+  }
+
+  // ── DOM factory helpers ──────────────────────────────────────
+
+  /**
+   * Creates and appends a pill button.
+   * @param {HTMLElement}  parent
+   * @param {string}       text
+   * @param {boolean}      active
+   * @param {()=>void}     handler
+   */
+  function pill(parent, text, active, handler) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pill" + (active ? " pill--on" : "");
+    b.textContent = text;
+    b.addEventListener("click", () => { handler(); render(); });
+    parent.appendChild(b);
+  }
+
+  /**
+   * Creates and appends a modifier chip button.
+   * @param {HTMLElement}  parent
+   * @param {Modifier}     mod
+   */
+  function modChip(parent, mod) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = `mod-${mod.id}`;
+    b.className = "mod-chip" + (S.mod === mod.id ? " mod-chip--on" : "");
+    b.innerHTML =
+      `<div class="mod-chip__label">${mod.label}</div>` +
+      `<div class="mod-chip__ev">${mod.stops > 0 ? `\u2212${mod.stops.toFixed(1)} EV` : "\u00b10 EV"}</div>`;
+    b.addEventListener("click", () => { S.mod = mod.id; render(); });
+    parent.appendChild(b);
+  }
+
+  // ── Build — runs once ────────────────────────────────────────
+
+  function buildFlashSelect() {
+    const sel = /** @type {HTMLSelectElement} */ (document.getElementById("sel-flash"));
+    const brands = [...new Set(FLASHES.map((f) => f.brand))];
+
+    for (const brand of brands) {
+      const grp = document.createElement("optgroup");
+      grp.label = brand;
+      FLASHES.forEach((f, i) => {
+        if (f.brand !== brand) return;
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = f.gnZoom
+          ? `${f.model} — GN ${f.gn} @${f.gnZoom}mm`
+          : `${f.model} — GN ${f.gn} (fixed)`;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
     }
 
-    function PillRow({ label, values, current, onSelect, fmt }) {
-      return (
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ ...LBL, marginBottom:"8px" }}>{label}</div>
-          <div style={{ display:"flex", gap:"3px" }}>
-            {values.map(v => <Pill key={v} v={v} current={current} onSelect={onSelect} fmt={fmt} />)}
-          </div>
-        </div>
-      );
+    sel.addEventListener("change", (e) => {
+      S.flashIdx = parseInt(/** @type {HTMLSelectElement} */ (e.target).value, 10);
+      render();
+    });
+  }
+
+  function buildZoomPills() {
+    const c = document.getElementById("zoom-pills");
+    ZOOM_VALUES.forEach((v) => pill(c, String(v), v === S.zoom, () => { S.zoom = v; }));
+  }
+
+  function buildIsoPills() {
+    const c = document.getElementById("iso-pills");
+    ISO_VALUES.forEach((v) => pill(c, String(v), v === S.iso, () => { S.iso = v; }));
+  }
+
+  function buildAperturePills() {
+    const a = document.getElementById("apt-pills-a");
+    const b = document.getElementById("apt-pills-b");
+    APERTURES.slice(0, 6).forEach((v) => pill(a, `f/${v}`, v === S.apt, () => { S.apt = v; }));
+    APERTURES.slice(6).forEach((v)    => pill(b, `f/${v}`, v === S.apt, () => { S.apt = v; }));
+  }
+
+  function buildModifiers() {
+    modChip(document.getElementById("mod-direct"), MODIFIERS[0]);
+    const grid = document.getElementById("mod-grid");
+    MODIFIERS.slice(1).forEach((m) => modChip(grid, m));
+  }
+
+  function buildBar() {
+    const track  = document.getElementById("bar-track");
+    const labels = document.getElementById("bar-labels");
+    const last   = POWER_LABELS.length - 1;
+
+    POWER_LABELS.forEach((_, i) => {
+      const seg = document.createElement("div");
+      seg.id = `seg-${i}`;
+      seg.className = "bar-seg";
+      track.appendChild(seg);
+
+      const lbl = document.createElement("span");
+      lbl.id = `lbl-${i}`;
+      lbl.className =
+        "bar-lbl " + (i === 0 ? "bar-lbl--l" : i === last ? "bar-lbl--r" : "bar-lbl--c");
+      labels.appendChild(lbl);
+    });
+  }
+
+  // ── Sync helpers — called on every render ────────────────────
+
+  /**
+   * Updates pill active classes.
+   * @param {string}      id
+   * @param {unknown[]}   values
+   * @param {unknown}     current
+   */
+  function syncPills(id, values, current) {
+    const items = document.getElementById(id).children;
+    values.forEach((v, i) => {
+      items[i].className = "pill" + (v === current ? " pill--on" : "");
+    });
+  }
+
+  /** @param {number} activeIdx */
+  function syncBar(activeIdx) {
+    const last = POWER_LABELS.length - 1;
+    POWER_LABELS.forEach((lbl, i) => {
+      const seg = document.getElementById(`seg-${i}`);
+      const el  = document.getElementById(`lbl-${i}`);
+      const isEdge   = i === 0 || i === last;
+      const isActive = i === activeIdx;
+
+      seg.className =
+        "bar-seg" +
+        (isActive ? " bar-seg--on" : i < activeIdx ? " bar-seg--past" : "");
+
+      el.className =
+        "bar-lbl " +
+        (i === 0 ? "bar-lbl--l" : i === last ? "bar-lbl--r" : "bar-lbl--c") +
+        (isActive ? " bar-lbl--on" : isEdge ? " bar-lbl--edge" : "");
+
+      el.textContent = (isEdge || isActive) ? lbl : "";
+    });
+  }
+
+  // ── Render ───────────────────────────────────────────────────
+
+  function render() {
+    const flash  = FLASHES[S.flashIdx];
+    const modDef = MODIFIERS.find((m) => m.id === S.mod);
+    const hasZoom = flash.gnZoom !== null;
+
+    // Distance
+    const slider = /** @type {HTMLInputElement} */ (document.getElementById("dist-slider"));
+    slider.style.background = trackBg(S.dist, 0.5, 15);
+    document.getElementById("dist-val").textContent = `${S.dist.toFixed(1)} m`;
+    slider.setAttribute("aria-valuetext", `${S.dist.toFixed(1)} metres`);
+
+    // Flash meta
+    const meta = document.getElementById("flash-meta");
+    meta.innerHTML = hasZoom
+      ? `<span>GN <b>${flash.gn}</b></span><span>Ref zoom <b>${flash.gnZoom} mm</b></span>`
+      : `<span>GN <b>${flash.gn}</b></span><em>fixed reflector</em>`;
+
+    // Zoom pills
+    document.getElementById("zoom-field").style.display = hasZoom ? "" : "none";
+    if (hasZoom) syncPills("zoom-pills", ZOOM_VALUES, S.zoom);
+
+    // Shared pills
+    syncPills("iso-pills",   ISO_VALUES,            S.iso);
+    syncPills("apt-pills-a", APERTURES.slice(0, 6), S.apt);
+    syncPills("apt-pills-b", APERTURES.slice(6),    S.apt);
+
+    // Modifier chips
+    MODIFIERS.forEach((m) => {
+      const el = document.getElementById(`mod-${m.id}`);
+      if (el) el.className = "mod-chip" + (m.id === S.mod ? " mod-chip--on" : "");
+    });
+
+    // Calculate
+    const result = calcPower({
+      gn:       flash.gn,
+      gnZoom:   flash.gnZoom,
+      zoom:     S.zoom,
+      distance: S.dist,
+      iso:      S.iso,
+      aperture: S.apt,
+      modStops: modDef.stops,
+    });
+
+    // Result state visibility
+    document.getElementById("res-weak").className   =
+      "res" + (result.err === "weak"   ? " res--on" : "");
+    document.getElementById("res-strong").className =
+      "res" + (result.err === "strong" ? " res--on" : "");
+    document.getElementById("res-ok").className     =
+      "res" + (!result.err             ? " res--on" : "");
+
+    // Panel accent
+    const panel = document.getElementById("col-result");
+    if (result.err) {
+      panel.style.background  = "var(--surface-1)";
+      panel.style.borderColor = "var(--border)";
+    } else {
+      panel.style.background =
+        "radial-gradient(ellipse at 50% 0%, rgba(232,160,48,0.10) 0%, var(--surface-1) 65%)";
+      panel.style.borderColor = "rgba(232,160,48,0.25)";
+
+      document.getElementById("power-frac").textContent = result.label;
+
+      const evEl = /** @type {HTMLElement} */ (document.getElementById("ev-offset"));
+      evEl.textContent = `+${result.offset.toFixed(1)}`;
+      evEl.style.color = result.offset > 0 ? "var(--text-base)" : "var(--surface-3)";
+
+      syncBar(result.idx);
     }
+  }
 
-    function ApertureRow({ current, onSelect }) {
-      return (
-        <div style={{ marginBottom: "4px" }}>
-          <div style={{ ...LBL, marginBottom:"8px" }}>Aperture</div>
-          <div style={{ display:"flex", gap:"3px", marginBottom:"3px" }}>
-            {APERTURES.slice(0,6).map(v =>
-              <Pill key={v} v={v} current={current} onSelect={onSelect} fmt={v => `f/${v}`} />)}
-          </div>
-          <div style={{ display:"flex", gap:"3px" }}>
-            {APERTURES.slice(6).map(v =>
-              <Pill key={v} v={v} current={current} onSelect={onSelect} fmt={v => `f/${v}`} />)}
-          </div>
-        </div>
-      );
-    }
+  // ── Init ─────────────────────────────────────────────────────
 
-    function ModifierGrid({ current, onSelect }) {
-      const first = MODIFIERS[0];
-      const rest  = MODIFIERS.slice(1);
-      const chip = (m, full) => {
-        const on = current === m.id;
-        return (
-          <button key={m.id} onClick={() => onSelect(m.id)} style={{
-            display: full ? "flex" : "block",
-            justifyContent:"space-between", alignItems:"center",
-            width: full ? "100%" : "auto",
-            background:   on ? "rgba(232,160,48,0.09)" : "transparent",
-            border:       `1px solid ${on ? A : "#242424"}`,
-            borderRadius: "6px",
-            padding:      full ? "11px 14px" : "11px 12px",
-            marginBottom: full ? "6px" : 0,
-            cursor:"pointer", touchAction:"manipulation",
-            textAlign:"left", transition:"all 0.12s",
-          }}>
-            <div style={{ fontSize:"13px", fontWeight: on?600:400,
-              color: on?A:"#666", lineHeight:"1.3" }}>{m.short}</div>
-            <div style={{ fontFamily:"monospace", fontSize:"11px",
-              color: on?"rgba(232,160,48,0.55)":"#333", marginTop: full?0:"3px" }}>
-              {m.stops > 0 ? `−${m.stops.toFixed(1)} EV` : "±0 EV"}
-            </div>
-          </button>
-        );
-      };
-      return (
-        <div>
-          <div style={{ ...LBL, marginBottom:"10px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
-            Modifiers
-          </div>
-          {chip(first, true)}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px" }}>
-            {rest.map(m => chip(m, false))}
-          </div>
-        </div>
-      );
-    }
+  (function init() {
+    buildFlashSelect();
+    buildZoomPills();
+    buildIsoPills();
+    buildAperturePills();
+    buildModifiers();
+    buildBar();
 
-    function FlashCalc() {
-      const [gnIdx, setGnIdx] = useState(GN_VALUES.indexOf(60));
-      const gn = GN_VALUES[gnIdx];
-      const [gnRef, setGnRef] = useState(200);
-      const [zoom,  setZoom]  = useState(50);
-      const [dist,  setDist]  = useState(2.0);
-      const [iso,   setIso]   = useState(100);
-      const [apt,   setApt]   = useState(8);
-      const [mod,   setMod]   = useState("none");
+    document.getElementById("dist-slider").addEventListener("input", (e) => {
+      S.dist = parseFloat(/** @type {HTMLInputElement} */ (e.target).value);
+      render();
+    });
 
-      const modDef   = MODIFIERS.find(m => m.id === mod);
-      const gnPct    = (gnIdx / (GN_VALUES.length - 1)) * 100;
-      const gnBg     = `linear-gradient(to right, ${A} 0%, ${A} ${gnPct}%, ${S2} ${gnPct}%, ${S2} 100%)`;
-      const gnRefIdx = Math.max(0, ZOOM_VALUES.indexOf(gnRef));
-      const gnRefPct = (gnRefIdx / (ZOOM_VALUES.length - 1)) * 100;
-      const gnRefBg  = `linear-gradient(to right, ${A} 0%, ${A} ${gnRefPct}%, ${S2} ${gnRefPct}%, ${S2} 100%)`;
-
-      const R = useMemo(
-        () => calcFlash({ gn, gnRef, zoom, distance: dist, iso, aperture: apt, modStops: modDef.stops }),
-        [gn, gnRef, zoom, dist, iso, apt, modDef]
-      );
-
-      return (
-        <div style={{ background:BG, minHeight:"100vh" }}>
-
-          <div className="layout">
-            {/* title — spans full width on desktop via col-title */}
-            <div className="col-title" style={{ padding:"6px 2px 0" }}>
-              <h1 style={{ fontFamily:"'Space Mono',monospace", fontWeight:700,
-                fontSize:"22px", letterSpacing:"3px", textTransform:"uppercase", color:"#fff" }}>
-                Flash <span style={{ color:A }}>Power</span> Calc
-              </h1>
-            </div>
-
-            {/* parameters */}
-            <div className="col-params" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
-              <div style={{ ...LBL, marginBottom:"18px", paddingBottom:"10px", borderBottom:`1px solid ${S2}` }}>
-                Parameters
-              </div>
-
-              {/* GN + Ref Zoom */}
-              <div style={{ display:"flex", gap:"20px", marginBottom:"20px" }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
-                    <span style={LBL}>Guide Number</span>
-                    <span style={{ fontSize:"15px", color:A, fontFamily:"monospace", fontWeight:700 }}>{gn}</span>
-                  </div>
-                  <input type="range" min={0} max={GN_VALUES.length - 1} step={1} value={gnIdx}
-                    onChange={e => setGnIdx(parseInt(e.target.value))}
-                    style={{ background: gnBg }} />
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"8px" }}>
-                    <span style={LBL}>Ref. Zoom</span>
-                    <span style={{ fontSize:"15px", color:"#666", fontFamily:"monospace", fontWeight:700 }}>{gnRef} mm</span>
-                  </div>
-                  <input type="range" min={0} max={ZOOM_VALUES.length - 1} step={1} value={gnRefIdx}
-                    onChange={e => setGnRef(ZOOM_VALUES[parseInt(e.target.value)])}
-                    style={{ background: gnRefBg }} />
-                </div>
-              </div>
-
-              <RangeRow label="Distance" value={dist} onChange={setDist}
-                min={0.5} max={15} step={0.5} display={`${dist.toFixed(1)} m`} />
-              <PillRow label="Flash Zoom" values={ZOOM_VALUES} current={zoom} onSelect={setZoom}
-                fmt={v => `${v}`} />
-              <PillRow label="ISO" values={ISO_VALUES} current={iso} onSelect={setIso} />
-              <ApertureRow current={apt} onSelect={setApt} />
-            </div>
-
-            {/* modifiers */}
-            <div className="col-mods" style={{ background:S1, borderRadius:"10px", padding:"20px 16px" }}>
-              <ModifierGrid current={mod} onSelect={setMod} />
-            </div>
-
-            {/* result */}
-            <div className="col-result" style={{
-              background:   R.err ? "#111" : `radial-gradient(ellipse at 50% 0%, rgba(232,160,48,0.10) 0%, #111 60%)`,
-              border:       `1px solid ${R.err ? "#222" : "rgba(232,160,48,0.2)"}`,
-              borderTop:    `1px solid ${R.err ? "#2a2a2a" : "rgba(232,160,48,0.3)"}`,
-              padding:      "18px 24px 20px",
-              display:      "flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", gap:"8px", textAlign:"center",
-            }}>
-
-              {R.err === "weak" && <>
-                <div style={{ fontSize:"26px" }}>🔅</div>
-                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
-                  color:"#ef4444", letterSpacing:"1px" }}>FLASH TOO WEAK</div>
-                <div style={{ fontSize:"12px", color:"#444", lineHeight:"1.6" }}>
-                  Open aperture · Raise ISO<br />Move closer · Use higher GN flash
-                </div>
-              </>}
-
-              {R.err === "strong" && <>
-                <div style={{ fontSize:"26px" }}>⚡</div>
-                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"11px",
-                  color:"#f59e0b", letterSpacing:"1px" }}>FLASH TOO STRONG</div>
-                <div style={{ fontSize:"12px", color:"#444", lineHeight:"1.6" }}>
-                  Close aperture · Lower ISO<br />Move subject farther
-                </div>
-              </>}
-
-              {!R.err && <>
-                <div className="power-row">
-                  <span style={{ fontFamily:"'Space Mono',monospace",
-                    fontSize:"clamp(42px,10vw,88px)", fontWeight:700,
-                    color:A, lineHeight:1, letterSpacing:"-1px" }}>
-                    {R.label}
-                  </span>
-                  <div style={{ display:"flex", alignItems:"baseline", gap:"4px" }}>
-                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"22px", fontWeight:700,
-                      color: R.offset > 0 ? "#d0d0d0" : "#252525" }}>
-                      +{R.offset.toFixed(1)}
-                    </span>
-                    <span style={{ fontSize:"11px", color:"#444", letterSpacing:"1px" }}>EV</span>
-                  </div>
-                </div>
-
-                <div className="power-bar" style={{ width:"100%", marginTop:"6px" }}>
-                  <div style={{ display:"flex", gap:"3px" }}>
-                    {POWER_LABELS.map((_, i) => (
-                      <div key={i} style={{
-                        flex:1, height:"5px", borderRadius:"2px",
-                        background: i===R.idx ? A : i<R.idx ? "rgba(232,160,48,0.18)" : S2,
-                        boxShadow:  i===R.idx ? `0 0 8px ${A}` : "none",
-                      }} />
-                    ))}
-                  </div>
-                  <div style={{ display:"flex", marginTop:"4px" }}>
-                    {POWER_LABELS.map((lbl, i) => {
-                      const last    = POWER_LABELS.length - 1;
-                      const visible = i===0 || i===last || i===R.idx;
-                      return (
-                        <span key={i} style={{
-                          fontFamily:"monospace", flex:1,
-                          fontSize:   i===0||i===last ? "9px" : "8px",
-                          fontWeight: i===0||i===last ? 700 : 400,
-                          color:      i===R.idx ? A : (i===0||i===last) ? "#444" : "transparent",
-                          textAlign:  i===0 ? "left" : i===last ? "right" : "center",
-                          transition: "color 0.2s",
-                        }}>{visible ? lbl : ""}</span>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ fontSize:"12px", color:"#444", lineHeight:"2", textAlign:"center" }}>
-                  Starting point only. Always bracket on first roll.
-                </div>
-              </>}
-
-            </div>
-
-            {/* footer */}
-            <div className="col-footer" style={{
-              padding:"4px 2px", textAlign:"right",
-              fontSize:"12px", color:"#444", lineHeight:"1.6",
-            }}>
-              © 2026 Nicola Cionini /&nbsp;
-              <a href="https://nicolacionini.it" className="footer-link">
-                nicolacionini.it
-              </a>
-            </div>
-
-          </div>
-        </div>
-      );
-    }
-
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<FlashCalc />);
-  </script>
+    render();
+  })();
+</script>
 </body>
 </html>
